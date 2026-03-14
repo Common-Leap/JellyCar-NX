@@ -1,7 +1,6 @@
 ## JellyCar is great 2d game with soft body physics created by Walaber https://twitter.com/walaber.
 
-This is an updated homebrew version of the original project for many platforms
-(PC, PSP, Wii, PlayStation 3, PlayStation Vita, Nintendo Switch), including Switch compatibility updates for current Atmosphere/libnx.
+This is an updated homebrew version of the original project for Switch, with all other consoles deprecated and unsupported.
 
 Current implementation uses [Andromeda-Lib](https://github.com/DrakonPL/Andromeda-Lib), patched during setup below.
 
