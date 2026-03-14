@@ -62,6 +62,7 @@ private:
 	Shader* _shader;
 	Sprite* _backSprite;
 	Sprite* _levelImage;
+	Sprite* _boxSprite;
 
 	glm::mat4 _projection;
 	glm::mat4 _jellyProjection;
@@ -79,11 +80,20 @@ private:
 	//level data
 	LevelManager* _levelManager;
 	
-	//menu
-	int currentPosition;
-	int columnStartPosition;
-	int positionsInColumn;
+	//level grid menu  (4 cols x 3 rows per page)
+	static const int GRID_COLS = 4;
+	static const int GRID_ROWS = 3;
+	static const int PAGE_SIZE = GRID_COLS * GRID_ROWS; // 12
+
+	int _gridCol;       // 0..GRID_COLS-1
+	int _gridRow;       // 0..GRID_ROWS-1
+	int _currentPage;   // 0-based page index
+	int _totalPages;
+
 	std::vector<std::string> _sceneFiles;
+
+	// derived helper
+	int CurrentIndex() const { return _currentPage * PAGE_SIZE + _gridRow * GRID_COLS + _gridCol; }
 
 	//car skins names
 	int carcurrentPosition;

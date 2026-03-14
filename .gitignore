@@ -1,0 +1,14 @@
+# Build output
+Build/Switch/build/
+Build/Switch/romfs/
+Build/Switch/.tmp/
+Build/Switch/JellyCar.elf
+Build/Switch/JellyCar.nro
+Build/Switch/JellyCar.nacp
+Build/Switch/JellyCar.nsp
+Build/Switch/JellyCar.nso
+Build/Switch/JellyCar.npdm
+Build/Switch/JellyCar.map
+
+# Generated assets
+Assets/Jelly/Texture/white.png
