@@ -81,3 +81,8 @@ The build now auto-stages `JellyCar/Assets` into `Build/Switch/romfs/Assets` and
 - Optional override: if you want filesystem assets instead of embedded romfs, place `Assets` at `sdmc:/switch/JellyCar/Assets`.
 
 For a release package, `JellyCar.nro` is the required runtime file.
+
+
+### Mod Support
+
+If you would like to customize the games asset/music or want to make custom levels, head on over to https://github.com/Common-Leap/JellyModTool/, where you can find a simple editor for making mods. Mods go in the same folder as the .nro and are in a folder named JellyMods. 
