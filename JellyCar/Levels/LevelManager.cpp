@@ -11,8 +11,11 @@
 
 #include "tinyxml.h"
 
+#include <stdio.h>
+#include <dirent.h>
 #include <Andromeda/FileSystem/FileManager.h>
 #include <Andromeda/Graphics/TextureManager.h>
+#include <Andromeda/Utils/Logger.h>
 
 namespace AFS = Andromeda::FileSystem;
 namespace AGraphics = Andromeda::Graphics;
@@ -83,6 +86,12 @@ void LevelManager::LoadAllScenes(std::string fileName)
 		info.time = 999.0f;
 		info.jump = 0.0f;
 
+		if (ModLoader::Instance()->IsLevelDisabled(info.name))
+		{
+			Andromeda::Utils::Logger::Instance()->Log("LevelManager: skipping disabled built-in level '%s'\n", info.name.c_str());
+			continue;
+		}
+
 		_levels.push_back(info);
 	}
 }
@@ -125,6 +134,12 @@ void LevelManager::LoadCarSkins(std::string fileName)
 		skinInfo.tireBig = ObjectNode->Attribute("tireBig");
 		skinInfo.chassisSmall = ObjectNode->Attribute("chassisSmall");
 		skinInfo.chassisBig = ObjectNode->Attribute("chassisBig");
+
+		if (ModLoader::Instance()->IsSkinDisabled(skinInfo.name))
+		{
+			Andromeda::Utils::Logger::Instance()->Log("LevelManager: skipping disabled built-in skin '%s'\n", skinInfo.name.c_str());
+			continue;
+		}
 
 		_skins.push_back(skinInfo);
 	}
@@ -295,21 +310,54 @@ bool LevelManager::LoadCompiledLevel(World *world, std::string levelName, std::s
 		levelFile = levelName;
 	}
 
-	levelFile = _assetLocation + "Scenes/" + levelFile + "c";
+	// Mod levels store their absolute path with a "mod:" prefix
+	bool isMod = (levelFile.substr(0, 4) == "mod:");
+	if (isMod)
+	{
+		levelFile = levelFile.substr(4); // strip prefix, already absolute
+	}
+	else
+	{
+		levelFile = _assetLocation + "Scenes/" + levelFile + "c";
+	}
 
-	AFS::BaseFile* loadFile = AFS::FileManager::Instance()->GetFile(levelFile);
+	// For mod levels, open directly via fopen (path is absolute, outside mainDirPath)
+	// For built-in levels, use the normal FileManager path
+	FILE* modFileBuf = 0;
+	AFS::BaseFile* loadFile = 0;
 
-	if (loadFile == 0)
-		return false;
+	if (isMod)
+	{
+		modFileBuf = fopen(levelFile.c_str(), "rb");
+		if (modFileBuf == 0)
+		{
+			Andromeda::Utils::Logger::Instance()->Log("LevelManager::LoadCompiledLevel: can't open mod level %s\n", levelFile.c_str());
+			return false;
+		}
+	}
+	else
+	{
+		loadFile = AFS::FileManager::Instance()->GetFile(levelFile);
+		if (loadFile == 0)
+			return false;
+		loadFile->Open(AFS::Read, AFS::Binary);
+	}
 
-	loadFile->Open(AFS::Read, AFS::Binary);
+	// Unified read lambda using whichever handle is open
+	auto readData = [&](void* dst, unsigned int size, int count)
+	{
+		if (modFileBuf)
+			fread(dst, size, count, modFileBuf);
+		else
+			loadFile->Read(dst, size, count);
+	};
 
 	//object container
 	std::vector<BodyObject> bodyObjects;
 
 	//load body objects and info
 	int number = 0;
-	loadFile->Read(&number, sizeof(int), 1);
+	readData(&number, sizeof(int), 1);
 
 	//save info of each body
 	for (int i = 0; i < number; i++)
@@ -318,33 +366,33 @@ bool LevelManager::LoadCompiledLevel(World *world, std::string levelName, std::s
 		memset(&bodyObject.info, 0, sizeof(BodyObjectInfo));
 
 		//load info struct
-		loadFile->Read(&bodyObject.info, sizeof(BodyObjectInfo), 1);
+		readData(&bodyObject.info, sizeof(BodyObjectInfo), 1);
 
 		//save points
-		loadFile->Read(&bodyObject.points, sizeof(int), 1);
+		readData(&bodyObject.points, sizeof(int), 1);
 		bodyObject.bodyPoints = new BodyPoint[bodyObject.points];
-		loadFile->Read(bodyObject.bodyPoints, sizeof(BodyPoint), bodyObject.points);
+		readData(bodyObject.bodyPoints, sizeof(BodyPoint), bodyObject.points);
 
 		//save springs
-		loadFile->Read(&bodyObject.springs, sizeof(int), 1);
+		readData(&bodyObject.springs, sizeof(int), 1);
 		bodyObject.bodySprings = new BodySpring[bodyObject.springs];
-		loadFile->Read(bodyObject.bodySprings, sizeof(BodySpring), bodyObject.springs);
+		readData(bodyObject.bodySprings, sizeof(BodySpring), bodyObject.springs);
 
 		//save polygons
-		loadFile->Read(&bodyObject.polygons, sizeof(int), 1);
+		readData(&bodyObject.polygons, sizeof(int), 1);
 		bodyObject.bodyPolygons = new BodyPolygon[bodyObject.polygons];
-		loadFile->Read(bodyObject.bodyPolygons, sizeof(BodyPolygon), bodyObject.polygons);
+		readData(bodyObject.bodyPolygons, sizeof(BodyPolygon), bodyObject.polygons);
 
 		bodyObjects.push_back(bodyObject);
 	}
 
 	//object count
 	int objectsCount = 0;
-	loadFile->Read(&objectsCount, sizeof(int), 1);
+	readData(&objectsCount, sizeof(int), 1);
 
 	//objects
 	GameObject* objectsArray = new GameObject[objectsCount];
-	loadFile->Read(objectsArray, sizeof(GameObject), objectsCount);
+	readData(objectsArray, sizeof(GameObject), objectsCount);
 
 	//create game level bodies
 	for (int i = 0; i < objectsCount; i++)
@@ -441,25 +489,32 @@ bool LevelManager::LoadCompiledLevel(World *world, std::string levelName, std::s
 	char carName[64];
 	memset(carName, 0, 64);
 
-	loadFile->Read(carName, sizeof(char), 64);
+	readData(carName, sizeof(char), 64);
 
 	//car position
-	loadFile->Read(&_carPos.X, sizeof(float), 1);
-	loadFile->Read(&_carPos.Y, sizeof(float), 1);
+	readData(&_carPos.X, sizeof(float), 1);
+	readData(&_carPos.Y, sizeof(float), 1);
 
 	if (!carFileName.empty())
 		_car = new Car(carFileName, world, _carPos, 2, 3);
 
 	//Settings
-	loadFile->Read(&finishX, sizeof(float), 1);
-	loadFile->Read(&finishY, sizeof(float), 1);
-	loadFile->Read(&fallLine, sizeof(float), 1);
+	readData(&finishX, sizeof(float), 1);
+	readData(&finishY, sizeof(float), 1);
+	readData(&fallLine, sizeof(float), 1);
 
 	//very important to set this at the end...
 	world->setWorldLimits(worldLimits.Min, worldLimits.Max);
 
-	loadFile->Close();
-	delete loadFile;
+	if (modFileBuf)
+	{
+		fclose(modFileBuf);
+	}
+	else
+	{
+		loadFile->Close();
+		delete loadFile;
+	}
 
 	return true;
 }
@@ -1363,4 +1418,118 @@ BodyObject LevelManager::ReadBodyData(std::string bodyName)
 	}
 
 	return bodyObject;
+}
+
+void LevelManager::LoadImageFromAbsPath(const std::string& key, const std::string& absPath)
+{
+	if (_images.find(key) != _images.end())
+		return;
+
+	// Read file directly via fopen — FileManager::GetFile prepends mainDirPath
+	// which would corrupt absolute sdmc:/ paths.
+	FILE* f = fopen(absPath.c_str(), "rb");
+	if (f == 0)
+	{
+		Andromeda::Utils::Logger::Instance()->Log("LevelManager::LoadImageFromAbsPath: can't open %s\n", absPath.c_str());
+		return;
+	}
+
+	fseek(f, 0, SEEK_END);
+	long size = ftell(f);
+	fseek(f, 0, SEEK_SET);
+
+	if (size <= 0)
+	{
+		fclose(f);
+		return;
+	}
+
+	// NOTE: TextureManager::LoadFromMemory takes ownership of this buffer and deletes it.
+	unsigned char* buf = new unsigned char[size];
+	fread(buf, 1, size, f);
+	fclose(f);
+
+	AGraphics::Texture* image = AGraphics::TextureManager::Instance()->LoadFromMemory(key, buf, (size_t)size);
+	if (image != 0)
+	{
+		_images.insert(std::pair<std::string, AGraphics::Texture*>(key, image));
+		Andromeda::Utils::Logger::Instance()->Log("LevelManager::LoadImageFromAbsPath: loaded %s\n", absPath.c_str());
+	}
+	else
+	{
+		Andromeda::Utils::Logger::Instance()->Log("LevelManager::LoadImageFromAbsPath: FAILED %s\n", absPath.c_str());
+	}
+}
+
+void LevelManager::LoadModSkins()
+{
+	const std::vector<ModSkinInfo>& mods = ModLoader::Instance()->GetSkins();
+	for (size_t i = 0; i < mods.size(); i++)
+	{
+		const ModSkinInfo& m = mods[i];
+
+		SkinInfo skin;
+		skin.name         = m.name;
+		// Use a mod-namespaced key so it never collides with built-in assets
+		skin.chassisSmall = "mod:" + m.modPath + "/" + m.chassisSmall;
+		skin.chassisBig   = "mod:" + m.modPath + "/" + m.chassisBig;
+		skin.tireSmall    = "mod:" + m.modPath + "/" + m.tireSmall;
+		skin.tireBig      = "mod:" + m.modPath + "/" + m.tireBig;
+
+		// Pre-load textures from absolute paths
+		LoadImageFromAbsPath(skin.chassisSmall, m.modPath + "/" + m.chassisSmall);
+		LoadImageFromAbsPath(skin.chassisBig,   m.modPath + "/" + m.chassisBig);
+		LoadImageFromAbsPath(skin.tireSmall,    m.modPath + "/" + m.tireSmall);
+		LoadImageFromAbsPath(skin.tireBig,      m.modPath + "/" + m.tireBig);
+
+		_skins.push_back(skin);
+		Andromeda::Utils::Logger::Instance()->Log("LevelManager::LoadModSkins: added skin '%s'\n", skin.name.c_str());
+	}
+}
+
+void LevelManager::LoadModLevels()
+{
+	const std::vector<ModLevelInfo>& mods = ModLoader::Instance()->GetLevels();
+	for (size_t i = 0; i < mods.size(); i++)
+	{
+		const ModLevelInfo& m = mods[i];
+
+		// Thumbnail: try the declared thumb first, then scan folder for any .png
+		std::string thumbKey = "mod:" + m.modPath + "/" + m.thumb;
+		LoadImageFromAbsPath(thumbKey, m.modPath + "/" + m.thumb);
+
+		// If declared thumb failed, scan the mod folder for any PNG and use the first one found
+		if (_images.find(thumbKey) == _images.end())
+		{
+			DIR* td = opendir(m.modPath.c_str());
+			if (td != 0)
+			{
+				struct dirent* tent;
+				while ((tent = readdir(td)) != 0)
+				{
+					std::string fname(tent->d_name);
+					if (fname.size() > 4 &&
+					    fname.substr(fname.size() - 4) == ".png" &&
+					    fname != m.thumb)
+					{
+						std::string altPath = m.modPath + "/" + fname;
+						LoadImageFromAbsPath(thumbKey, altPath);
+						if (_images.find(thumbKey) != _images.end())
+							break;
+					}
+				}
+				closedir(td);
+			}
+		}
+
+		LevelInfo info;
+		info.name  = m.name;
+		info.file  = "mod:" + m.modPath + "/" + m.file;  // sentinel prefix for LoadCompiledLevel
+		info.thumb = thumbKey;
+		info.time  = 9999.99f;
+		info.jump  = 0.0f;
+
+		_levels.push_back(info);
+		Andromeda::Utils::Logger::Instance()->Log("LevelManager::LoadModLevels: added level '%s'\n", info.name.c_str());
+	}
 }

@@ -149,6 +149,7 @@ SRC_RENDERER	:=\
 	../../../JellyCar/JellyCar/Utils/JellyHelper.cpp \
 	../../../JellyCar/JellyCar/Utils/InputHelper.cpp \
 	../../../JellyCar/JellyCar/Utils/AudioHelper.cpp \
+	../../../JellyCar/JellyCar/Mods/ModLoader.cpp \
 	../../../JellyCar/JellyCar/Game/JellyCore.cpp \
 	../../../JellyCar/JellyCar/Game/JellyGame.cpp \
 	../../../JellyCar/JellyCar/Game/JellyOptions.cpp \

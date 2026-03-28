@@ -8,6 +8,7 @@ using namespace JellyPhysics;
 #include "LevelInfo.h"
 #include "SkinInfo.h"
 #include "../Car/Car.h"
+#include "../Mods/ModLoader.h"
 
 #include "SimpleStruct/BodyObject.h"
 
@@ -42,6 +43,7 @@ private:
 
 	void LoadCarImage(std::string& imageName);
 	void LoadLevelImage(std::string& imageName);
+	void LoadImageFromAbsPath(const std::string& key, const std::string& absPath);
 
 public:
 
@@ -51,6 +53,10 @@ public:
 
 	void LoadAllScenes(std::string fileName);
 	void LoadCarSkins(std::string fileName);
+
+	// Mod integration — call after LoadCarSkins / LoadAllScenes
+	void LoadModSkins();
+	void LoadModLevels();
 
 	std::vector<LevelInfo> GetLoadedLevels() { return _levels; }
 

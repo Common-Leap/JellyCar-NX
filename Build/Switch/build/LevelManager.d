@@ -228,6 +228,7 @@ LevelManager.o: \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Levels/../Car/Chassis.h \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Levels/../Car/SuspensionShock.h \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Levels/../Car/GameBallonBody.h \
+ /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Levels/../Mods/ModLoader.h \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Levels/KinematicMotor.h \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Levels/KinematicPlatform.h \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Levels/SimpleStruct/GameObject.h \
@@ -239,7 +240,8 @@ LevelManager.o: \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/FileSystem/FileManager.h \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/FileSystem/BaseFile.h \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/FileSystem/BaseDirectory.h \
- /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/Graphics/TextureManager.h
+ /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/Graphics/TextureManager.h \
+ /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/Utils/Logger.h
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Levels/LevelManager.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Libs/JellyPhysics/JellyPhysics.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Libs/JellyPhysics/JellyPrerequisites.h:
@@ -468,6 +470,7 @@ LevelManager.o: \
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Levels/../Car/Chassis.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Levels/../Car/SuspensionShock.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Levels/../Car/GameBallonBody.h:
+/home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Levels/../Mods/ModLoader.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Levels/KinematicMotor.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Levels/KinematicPlatform.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Levels/SimpleStruct/GameObject.h:
@@ -480,3 +483,4 @@ LevelManager.o: \
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/FileSystem/BaseFile.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/FileSystem/BaseDirectory.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/Graphics/TextureManager.h:
+/home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/Utils/Logger.h:

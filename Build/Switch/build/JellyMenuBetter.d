@@ -266,6 +266,7 @@ JellyMenuBetter.o: \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Levels/LevelInfo.h \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Levels/SkinInfo.h \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Levels/../Car/Car.h \
+ /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Levels/../Mods/ModLoader.h \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Levels/LevelSoftBody.h \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/InputHelper.h \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/AudioHelper.h \
@@ -543,6 +544,7 @@ JellyMenuBetter.o: \
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Levels/LevelInfo.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Levels/SkinInfo.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Levels/../Car/Car.h:
+/home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Levels/../Mods/ModLoader.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Levels/LevelSoftBody.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/InputHelper.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/AudioHelper.h:

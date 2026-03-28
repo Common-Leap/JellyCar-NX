@@ -51,7 +51,9 @@ void JellyMenuBetter::Init()
 	_levelManager = new LevelManager();
 	_levelManager->SetAssetsLocation("Assets/Jelly/");
 	_levelManager->LoadAllScenes("scene_list.xml");
+	_levelManager->LoadModLevels();  // inject mod levels after built-ins
 	_levelManager->LoadCarSkins("car_skins.xml");
+	_levelManager->LoadModSkins();   // inject mod skins after built-ins
 	_levelManager->LoadScores("JellyScore.xml");
 
 	//get scenes and skin names

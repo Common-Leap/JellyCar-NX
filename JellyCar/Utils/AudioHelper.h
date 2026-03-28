@@ -75,6 +75,9 @@ public:
 
 	void LoadSetting();
 	void SaveSettings();
+
+	// Mod integration — call after Init()
+	void LoadModSongs();
 };
 
 #endif

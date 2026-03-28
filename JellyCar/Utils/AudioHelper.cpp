@@ -6,6 +6,7 @@
 #include <Andromeda/Utils/Logger.h>
 #include <Andromeda/FileSystem/FileManager.h>
 #include "tinyxml.h"
+#include "../Mods/ModLoader.h"
 
 namespace AFS = Andromeda::FileSystem;
 
@@ -40,6 +41,7 @@ void AudioHelper::Init()
 	LoadSetting();
 
 	LoadSounds();
+	LoadModSongs(); // append mod music tracks to playlist
 
 	_musicPlaying = false;
 
@@ -110,9 +112,14 @@ void AudioHelper::LoadSounds()
 		_hitSounds.push_back(sound);
 	}
 
-	//add background music file names
+	//add background music file names — skip any disabled by disable.xml
 	for (size_t i = 1; i < 8; i++)
 	{
+		if (ModLoader::Instance()->IsSongDisabled((int)i))
+		{
+			Andromeda::Utils::Logger::Instance()->Log("AudioHelper::LoadSounds: skipping built-in song %d (disabled)\n", (int)i);
+			continue;
+		}
 		std::string songName = "Assets/Jelly/Music/song" + to_string(i) + ".ogg";
 		_musicList.push_back(songName);
 	}
@@ -158,12 +165,15 @@ void AudioHelper::PlayMusic()
 			}
 		}
 
-		int soundNumber = rand() % 7;
+		int soundNumber = rand() % (int)_musicList.size();
 
-		//Andromeda::Utils::Logger_Info("AudioHelper - PlayMusic: %s\n", _musicList[soundNumber].c_str());
+		Andromeda::Utils::Logger::Instance()->Log("AudioHelper::PlayMusic: picking '%s'\n", _musicList[soundNumber].c_str());
 
 		_music = _audioManager->GetSound(_musicList[soundNumber]);
-		_music->LoadOgg(_musicList[soundNumber]);
+		if (!_music->LoadOgg(_musicList[soundNumber]))
+		{
+			Andromeda::Utils::Logger::Instance()->Log("AudioHelper::PlayMusic: LoadOgg FAILED for '%s'\n", _musicList[soundNumber].c_str());
+		}
 		_music->SetLoop(true);
 		_music->SetVolume(_musicVolume);
 		_music->Play();
@@ -370,4 +380,15 @@ void AudioHelper::SaveSettings()
 	}
 
 	doc.SaveFile(saveFile.c_str());
+}
+
+void AudioHelper::LoadModSongs()
+{
+	const std::vector<ModSongInfo>& mods = ModLoader::Instance()->GetSongs();
+	for (size_t i = 0; i < mods.size(); i++)
+	{
+		std::string fullPath = mods[i].modPath + "/" + mods[i].file;
+		_musicList.push_back(fullPath);
+		Andromeda::Utils::Logger::Instance()->Log("AudioHelper::LoadModSongs: added '%s'\n", fullPath.c_str());
+	}
 }

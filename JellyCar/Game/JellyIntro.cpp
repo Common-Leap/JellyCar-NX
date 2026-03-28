@@ -47,6 +47,7 @@ void JellyIntro::Init()
 	_levelManager = new LevelManager();
 	_levelManager->SetAssetsLocation("Assets/Jelly/");
 	_levelManager->LoadCarSkins("car_skins.xml");
+	_levelManager->LoadModSkins();   // inject mod skins after built-ins
 
 	//background paper sprite
 	_backSprite = new Sprite("paper", "Assets/Jelly/Texture/paper.png", "Assets/Shaders/sprite", "Assets/Shaders/sprite");

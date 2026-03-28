@@ -217,7 +217,8 @@ GameLoaderSwitch.o: \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/Input/MouseDevice.h \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/Input/GamepadDevice.h \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/Input/TouchDevice.h \
- /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/Utils/Logger.h
+ /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/Utils/Logger.h \
+ /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Mods/ModLoader.h
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/System/SWITCH/GameLoaderSwitch.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/System/GameLoader.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/System/GameManager.h:
@@ -436,3 +437,4 @@ GameLoaderSwitch.o: \
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/Input/GamepadDevice.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/Input/TouchDevice.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/Utils/Logger.h:
+/home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Mods/ModLoader.h:
