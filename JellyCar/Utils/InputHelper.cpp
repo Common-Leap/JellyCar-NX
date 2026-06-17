@@ -617,6 +617,52 @@ Sprite* InputHelper::MenuActionSprite(MenuAction action)
 	return nullptr;
 }
 
+static std::string GamepadButtonLabel(Gamepad::Button button)
+{
+	switch (button)
+	{
+	case Gamepad::Button::Triangle: return "Y";
+	case Gamepad::Button::Circle:   return "B";
+	case Gamepad::Button::Cross:    return "A";
+	case Gamepad::Button::Square:   return "X";
+	case Gamepad::Button::Left:     return "<";
+	case Gamepad::Button::Right:    return ">";
+	case Gamepad::Button::Up:       return "^";
+	case Gamepad::Button::Down:     return "v";
+	case Gamepad::Button::LTrigger: return "L";
+	case Gamepad::Button::RTrigger: return "R";
+	case Gamepad::Button::Select:   return "SEL";
+	case Gamepad::Button::Start:    return "START";
+	default:                        return "?";
+	}
+}
+
+std::string InputHelper::MenuActionLabel(MenuAction action)
+{
+	if (_mode == InputActionMode::PC)
+	{
+		Key::Code code = _menuKeyboardMapping[action];
+		if (_nameKeyboardMapping.find(code) != _nameKeyboardMapping.end())
+			return _nameKeyboardMapping[code];
+		return "?";
+	}
+
+	return GamepadButtonLabel(_menuGamepadMapping[action]);
+}
+
+std::string InputHelper::CarActionLabel(CarAction action)
+{
+	if (_mode == InputActionMode::PC)
+	{
+		Key::Code code = _carKeyboardMapping[action];
+		if (_nameKeyboardMapping.find(code) != _nameKeyboardMapping.end())
+			return _nameKeyboardMapping[code];
+		return "?";
+	}
+
+	return GamepadButtonLabel(_carGamepadMapping[action]);
+}
+
 
 std::string InputHelper::InputName(CarAction action)
 {

@@ -1,6 +1,10 @@
 #include "JellyGame.h"
 
 #include "../Utils/JellyHelper.h"
+#include "../Utils/RectangleDrawer.h"
+#include "../Utils/UiTheme.h"
+#include "../Utils/UiLayout.h"
+#include "../Utils/UiPrompt.h"
 
 #include <stdio.h> 
 #include <sstream> 
@@ -1003,101 +1007,177 @@ void JellyGame::Draw(GameManager* manager)
 
 	if (_gamePlayState == GamePlayState::Paused)
 	{
+		int screenW = _renderManager->GetWidth();
+		int screenH = _renderManager->GetHeight();
+		RectangleDrawer* ui = RectangleDrawer::Instance();
+
+		ui->DrawDimOverlay(screenW, screenH, 0.30f, _projection);
+
+		int panelW = 420;
+		int panelH = _checkpoint ? 220 : 180;
+		int panelX = (screenW - panelW) / 2;
+		int panelY = (screenH - panelH) / 2 - 20;
+		int panelCx = UiLayout::CenterX(panelX, panelW);
+		int contentY = panelY + 20;
+		int contentH = panelH - 36;
+		int totalRows = _checkpoint ? 5 : 4;
+
+		ui->DrawPanel(panelX, panelY, panelW, panelH, UiTheme::PanelRadius(), _projection);
+
+		_menuFont->AddText("Pause", panelCx,
+			UiLayout::BaselineRow(contentY, contentH, 0, totalRows, UiLayout::MenuFontSize),
+			UiTheme::TextHighlight(), FontCenter);
+
+		int row = 1;
+		int rowH = contentH / totalRows;
+		int rowY = contentY + row * rowH;
+		int rowPad = 24;
+
+		UiPrompt::DrawPromptInRow(ui, _core->_smallFont, _menuFont, _projection,
+			panelX + rowPad, panelW - rowPad * 2, rowY, rowH,
+			_inputHelper->MenuActionLabel(MenuAction::MenuBack).c_str(), "Resume");
+
 		if (_checkpoint)
 		{
-			_menuFont->AddText("Pause", _renderManager->GetWidth() / 2, _renderManager->GetHeight() / 2  - 72+ 2, glm::vec3(0.19f, 0.14f, 0.17f), FontCenter);
-			_menuFont->AddText("Pause", _renderManager->GetWidth() / 2, _renderManager->GetHeight() / 2 - 72, glm::vec3(0.71f, 0.16f, 0.18f), FontCenter);
-			
-			_inputHelper->MenuActionSprite(MenuAction::MenuBack)->SetPosition(glm::vec2((_renderManager->GetWidth() / 2), _renderManager->GetHeight() / 2  - 42));
-			_inputHelper->MenuActionSprite(MenuAction::MenuBack)->Draw(_projection);
-
-			_menuFont->AddText("Resume", (_renderManager->GetWidth() / 2) + 50, _renderManager->GetHeight() / 2 - 32, glm::vec3(0.19f, 0.14f, 0.17f), FontLeft);
-
-			_inputHelper->CarActionSprite(CarAction::Tire)->SetPosition(glm::vec2((_renderManager->GetWidth() / 2), _renderManager->GetHeight() / 2 - 2));
-			_inputHelper->CarActionSprite(CarAction::Tire)->Draw(_projection);
-
-			_menuFont->AddText("Go to checkpoint", (_renderManager->GetWidth() / 2) + 50, _renderManager->GetHeight() / 2 + 8, glm::vec3(0.19f, 0.14f, 0.17f), FontLeft);
-		}
-		else
-		{
-			_menuFont->AddText("Pause", _renderManager->GetWidth() / 2, (_renderManager->GetHeight() / 2) - 40 + 2, glm::vec3(0.19f, 0.14f, 0.17f), FontCenter);
-			_menuFont->AddText("Pause", _renderManager->GetWidth() / 2, (_renderManager->GetHeight() / 2) - 40, glm::vec3(0.71f, 0.16f, 0.18f), FontCenter);
-
-			_inputHelper->MenuActionSprite(MenuAction::MenuBack)->SetPosition(glm::vec2((_renderManager->GetWidth() / 2), (_renderManager->GetHeight() / 2) - 2));
-			_inputHelper->MenuActionSprite(MenuAction::MenuBack)->Draw(_projection);
-
-			_menuFont->AddText("Resume", (_renderManager->GetWidth() / 2) + 50, (_renderManager->GetHeight() / 2) + 8, glm::vec3(0.19f, 0.14f, 0.17f), FontLeft);
+			row++;
+			rowY = contentY + row * rowH;
+			UiPrompt::DrawPromptInRow(ui, _core->_smallFont, _menuFont, _projection,
+				panelX + rowPad, panelW - rowPad * 2, rowY, rowH,
+				_inputHelper->CarActionLabel(CarAction::Tire).c_str(), "Go to checkpoint");
 		}
 
-		_inputHelper->MenuActionSprite(MenuAction::MenuPause)->SetPosition(glm::vec2((_renderManager->GetWidth() / 2), _renderManager->GetHeight() / 2 + 38));
-		_inputHelper->MenuActionSprite(MenuAction::MenuPause)->Draw(_projection);
+		row++;
+		rowY = contentY + row * rowH;
+		UiPrompt::DrawPromptInRow(ui, _core->_smallFont, _menuFont, _projection,
+			panelX + rowPad, panelW - rowPad * 2, rowY, rowH,
+			_inputHelper->MenuActionLabel(MenuAction::MenuPause).c_str(), "Options");
 
-		_menuFont->AddText("Options", (_renderManager->GetWidth() / 2) + 50, _renderManager->GetHeight() / 2 + 48, glm::vec3(0.19f, 0.14f, 0.17f), FontLeft);
-
-		_inputHelper->MenuActionSprite(MenuAction::MenuExit)->SetPosition(glm::vec2((_renderManager->GetWidth() / 2), _renderManager->GetHeight() / 2 + 78));
-		_inputHelper->MenuActionSprite(MenuAction::MenuExit)->Draw(_projection);
-
-		_menuFont->AddText("Main menu", (_renderManager->GetWidth() / 2) + 50, _renderManager->GetHeight() / 2 + 88, glm::vec3(0.19f, 0.14f, 0.17f), FontLeft);
+		row++;
+		rowY = contentY + row * rowH;
+		UiPrompt::DrawPromptInRow(ui, _core->_smallFont, _menuFont, _projection,
+			panelX + rowPad, panelW - rowPad * 2, rowY, rowH,
+			_inputHelper->MenuActionLabel(MenuAction::MenuExit).c_str(), "Main menu");
 	}
 
 
 
 	if (_gamePlayState == GamePlayState::Finish)
 	{
-		_menuFont->AddText("Level finished", _renderManager->GetWidth() / 2, (_renderManager->GetHeight() / 2) - 120 + 2, glm::vec3(0.19f, 0.14f, 0.17f), FontCenter);
-		_menuFont->AddText("Level finished", _renderManager->GetWidth() / 2, (_renderManager->GetHeight() / 2) - 120, glm::vec3(1.0f, 0.65f, 0.0f), FontCenter);
+		int screenW = _renderManager->GetWidth();
+		int screenH = _renderManager->GetHeight();
+		RectangleDrawer* ui = RectangleDrawer::Instance();
+		ui->DrawDimOverlay(screenW, screenH, 0.22f, _projection);
+
+		int rowCount = 2;
+		if (_newJumpRecord && _newTimeRecord)
+			rowCount = 4;
+		else if (_newJumpRecord || _newTimeRecord)
+			rowCount = 3;
+
+		const int rowH = 48;
+		const int padV = 28;
+		const int padH = 24;
+		int pW = 440;
+		int pH = padV * 2 + rowCount * rowH;
+		int pX = (screenW - pW) / 2;
+		int pY = (screenH - pH) / 2;
+		int pCx = UiLayout::CenterX(pX, pW);
+		int bodyY = pY + padV;
+		int bodyH = rowCount * rowH;
+
+		ui->DrawPanel(pX, pY, pW, pH, UiTheme::PanelRadius(), _projection);
+
+		int row = 0;
+		_menuFont->AddText("Level finished", pCx,
+			UiLayout::BaselineRow(bodyY, bodyH, row++, rowCount, UiLayout::MenuFontSize),
+			UiTheme::TextAccent(), FontCenter);
 
 		if (_newJumpRecord && _newTimeRecord)
 		{
-			_menuFont->AddText("New Jump Record!", _renderManager->GetWidth() / 2, (_renderManager->GetHeight() / 2) - 60 + 2, glm::vec3(0.19f, 0.14f, 0.17f), FontCenter);
-			_menuFont->AddText("New Jump Record!", _renderManager->GetWidth() / 2, (_renderManager->GetHeight() / 2) - 60, glm::vec3(0.71f, 0.16f, 0.18f), FontCenter);
-
-			_menuFont->AddText("New Time Record!", _renderManager->GetWidth() / 2, (_renderManager->GetHeight() / 2) + 2, glm::vec3(0.19f, 0.14f, 0.17f), FontCenter);
-			_menuFont->AddText("New Time Record!", _renderManager->GetWidth() / 2, (_renderManager->GetHeight() / 2), glm::vec3(0.0f, 0.84f, 0.0f), FontCenter);
+			_menuFont->AddText("New Jump Record!", pCx,
+				UiLayout::BaselineRow(bodyY, bodyH, row++, rowCount, UiLayout::MenuFontSize),
+				UiTheme::TextHighlight(), FontCenter);
+			_menuFont->AddText("New Time Record!", pCx,
+				UiLayout::BaselineRow(bodyY, bodyH, row++, rowCount, UiLayout::MenuFontSize),
+				UiTheme::TextSuccess(), FontCenter);
 		}
 		else if (_newJumpRecord)
 		{
-			_menuFont->AddText("New Jump Record!", _renderManager->GetWidth() / 2, (_renderManager->GetHeight() / 2) - 60 + 2, glm::vec3(0.19f, 0.14f, 0.17f), FontCenter);
-			_menuFont->AddText("New Jump Record!", _renderManager->GetWidth() / 2, (_renderManager->GetHeight() / 2) - 60, glm::vec3(0.71f, 0.16f, 0.18f), FontCenter);
+			_menuFont->AddText("New Jump Record!", pCx,
+				UiLayout::BaselineRow(bodyY, bodyH, row++, rowCount, UiLayout::MenuFontSize),
+				UiTheme::TextHighlight(), FontCenter);
 		}
 		else if (_newTimeRecord)
 		{
-			_menuFont->AddText("New Time Record!", _renderManager->GetWidth() / 2, (_renderManager->GetHeight() / 2) - 60 + 2, glm::vec3(0.19f, 0.14f, 0.17f), FontCenter);
-			_menuFont->AddText("New Time Record!", _renderManager->GetWidth() / 2, (_renderManager->GetHeight() / 2) - 60, glm::vec3(0.0f, 0.84f, 0.0f), FontCenter);
+			_menuFont->AddText("New Time Record!", pCx,
+				UiLayout::BaselineRow(bodyY, bodyH, row++, rowCount, UiLayout::MenuFontSize),
+				UiTheme::TextSuccess(), FontCenter);
 		}
+
+		UiPrompt::DrawPromptInRow(ui, _core->_smallFont, _menuFont, _projection,
+			pX + padH, pW - padH * 2, bodyY + row * rowH, rowH,
+			_inputHelper->MenuActionLabel(MenuAction::MenuBack).c_str(), "Main menu");
 	}
 	else if (_gamePlayState == GamePlayState::CarBroken)
 	{
-		_menuFont->AddText("Car broken", _renderManager->GetWidth() / 2, (_renderManager->GetHeight() / 2) - 60 + 2, glm::vec3(0.19f, 0.14f, 0.17f), FontCenter);
-		_menuFont->AddText("Car broken", _renderManager->GetWidth() / 2, (_renderManager->GetHeight() / 2) - 60, glm::vec3(1.0f, 0.65f, 0.0f), FontCenter);
+		int screenW = _renderManager->GetWidth();
+		int screenH = _renderManager->GetHeight();
+		RectangleDrawer* ui = RectangleDrawer::Instance();
 
+		const int rowCount = 2;
+		const int rowH = 48;
+		const int padV = 24;
+		const int padH = 24;
+		int pW = 360;
+		int pH = padV * 2 + rowCount * rowH;
+		int pX = (screenW - pW) / 2;
+		int pY = (screenH - pH) / 2;
+		int bodyY = pY + padV;
+		int bodyH = rowCount * rowH;
+
+		ui->DrawDimOverlay(screenW, screenH, 0.22f, _projection);
+		ui->DrawPanel(pX, pY, pW, pH, UiTheme::PanelRadius(), _projection);
+
+		_menuFont->AddText("Car broken", UiLayout::CenterX(pX, pW),
+			UiLayout::BaselineRow(bodyY, bodyH, 0, rowCount, UiLayout::MenuFontSize),
+			UiTheme::TextAccent(), FontCenter);
+
+		UiPrompt::DrawPromptInRow(ui, _core->_smallFont, _menuFont, _projection,
+			pX + padH, pW - padH * 2, bodyY + rowH, rowH,
+			_inputHelper->MenuActionLabel(MenuAction::MenuBack).c_str(), "Main menu");
 	}
 	else if (_gamePlayState == GamePlayState::OutOfBounds)
 	{
-		_menuFont->AddText("Out of level", _renderManager->GetWidth() / 2, (_renderManager->GetHeight() / 2) - 60 + 2, glm::vec3(0.19f, 0.14f, 0.17f), FontCenter);
-		_menuFont->AddText("Out of level", _renderManager->GetWidth() / 2, (_renderManager->GetHeight() / 2) - 60, glm::vec3(1.0f, 0.65f, 0.0f), FontCenter);
+		int screenW = _renderManager->GetWidth();
+		int screenH = _renderManager->GetHeight();
+		RectangleDrawer* ui = RectangleDrawer::Instance();
 
-	}
+		const int rowCount = 2;
+		const int rowH = 48;
+		const int padV = 24;
+		const int padH = 24;
+		int pW = 360;
+		int pH = padV * 2 + rowCount * rowH;
+		int pX = (screenW - pW) / 2;
+		int pY = (screenH - pH) / 2;
+		int bodyY = pY + padV;
+		int bodyH = rowCount * rowH;
 
-	//end level text
-	if (_gamePlayState != GamePlayState::Play && _gamePlayState != GamePlayState::Paused)
-	{
-		if (_newJumpRecord && _newTimeRecord)
-		{
-			_inputHelper->MenuActionSprite(MenuAction::MenuBack)->SetPosition(glm::vec2((_renderManager->GetWidth() / 2), _renderManager->GetHeight() / 2 + 38));
-			_inputHelper->MenuActionSprite(MenuAction::MenuBack)->Draw(_projection);
-			_menuFont->AddText("Main menu", (_renderManager->GetWidth() / 2) + 50, _renderManager->GetHeight() / 2 + 48, glm::vec3(0.19f, 0.14f, 0.17f), FontLeft);
-		}
-		else
-		{
-			_inputHelper->MenuActionSprite(MenuAction::MenuBack)->SetPosition(glm::vec2((_renderManager->GetWidth() / 2), _renderManager->GetHeight() / 2 - 2));
-			_inputHelper->MenuActionSprite(MenuAction::MenuBack)->Draw(_projection);
-			_menuFont->AddText("Main menu", (_renderManager->GetWidth() / 2) + 50, _renderManager->GetHeight() / 2 + 8, glm::vec3(0.19f, 0.14f, 0.17f), FontLeft);
-		}
+		ui->DrawDimOverlay(screenW, screenH, 0.22f, _projection);
+		ui->DrawPanel(pX, pY, pW, pH, UiTheme::PanelRadius(), _projection);
+
+		_menuFont->AddText("Out of level", UiLayout::CenterX(pX, pW),
+			UiLayout::BaselineRow(bodyY, bodyH, 0, rowCount, UiLayout::MenuFontSize),
+			UiTheme::TextAccent(), FontCenter);
+
+		UiPrompt::DrawPromptInRow(ui, _core->_smallFont, _menuFont, _projection,
+			pX + padH, pW - padH * 2, bodyY + rowH, rowH,
+			_inputHelper->MenuActionLabel(MenuAction::MenuBack).c_str(), "Main menu");
 	}
 
 	//draw main text
 	_menuFont->Draw(_projection);
+	_core->_smallFont->Draw(_projection);
 
 	//_transformMeter
 	if (mTransformMeter >= 0.0f)

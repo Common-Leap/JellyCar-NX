@@ -5,6 +5,10 @@
 #include "JellyOptions.h"
 
 #include "../Utils/JellyHelper.h"
+#include "../Utils/RectangleDrawer.h"
+#include "../Utils/UiTheme.h"
+#include "../Utils/UiLayout.h"
+#include "../Utils/UiPrompt.h"
 
 #include <Andromeda/Utils/Logger.h>
 
@@ -62,16 +66,13 @@ void JellyMenuBetter::Init()
 
 	LOG("JellyMenuBetter::Init scene count=%d skin count=%d\n", (int)_sceneFiles.size(), (int)_carSkins.size());
 
-	//background paper sprite
+	//background + level thumbnail
 	_backSprite = new Sprite("paper", "Assets/Jelly/Texture/paper.png", "Assets/Shaders/sprite", "Assets/Shaders/sprite");
-
-	//box sprite for grid cells - rounded corners with grey outline
-	_boxSprite = new Sprite("roundedbox", "Assets/Jelly/Texture/rounded_box.png", "Assets/Shaders/sprite", "Assets/Shaders/sprite");
-
-	//level thumbnail sprite - start with first level
 	_levelImage = new Sprite("thumb", _levelManager->GetThumb(_sceneFiles[0]), _shader);
 
 	_jellyGame = nullptr;
+	_focusPulse = 0.0f;
+	_focusPhase = 0.0f;
 
 	//load menu level physics
 	_world = new World();
@@ -125,7 +126,6 @@ void JellyMenuBetter::CleanUp()
 	_gameBodies.clear();
 
 	delete _backSprite;
-	delete _boxSprite;
 	delete _levelImage;
 
 	_shaderManager->RemoveAll();
@@ -330,6 +330,10 @@ void JellyMenuBetter::HandleEvents(GameManager* manager)
 
 void JellyMenuBetter::Update(GameManager* manager)
 {
+	_dt = _timer->GetDelta();
+	_focusPhase += _dt * 4.0f;
+	_focusPulse = 0.5f + 0.5f * sinf(_focusPhase);
+
 	if (!_inputHelper->ActionHold(CarAction::Left) && !_inputHelper->ActionHold(CarAction::Right))
 		_car->setTorque(0);
 
@@ -356,67 +360,74 @@ void JellyMenuBetter::Update(GameManager* manager)
 
 void JellyMenuBetter::Draw(GameManager* manager)
 {
+	RectangleDrawer* ui = RectangleDrawer::Instance();
+
 	_renderManager->StartFrame();
 	_renderManager->ClearScreen();
 
-	// --- tiled paper background ---
-	{
-		int bw = _backSprite->GetTexture()->GetWidth();
-		int bh = _backSprite->GetTexture()->GetHeight();
-		int cols = (int)ceil((float)_renderManager->GetWidth()  / (float)bw);
-		int rows = (int)ceil((float)_renderManager->GetHeight() / (float)bh);
-		_backSprite->SetScale(glm::vec2(1.0f, 1.0f));
-		for (int y = 0; y < rows; y++)
-		{
-			for (int x = 0; x < cols; x++)
-			{
-				_backSprite->SetPosition(glm::vec2(bw * x + bw / 2, bh * y + bh / 2));
-				_backSprite->Draw(_projection);
-			}
-		}
-	}
+	int screenW = _renderManager->GetWidth();
+	int screenH = _renderManager->GetHeight();
+
+	ui->DrawPaperBackground(_backSprite, screenW, screenH, _projection);
 
 	// --- physics car preview (bottom strip) ---
 	for (size_t i = 0; i < _gameBodies.size(); i++)
 		_gameBodies[i]->Draw(_jellyProjection);
 	_car->Draw(_jellyProjection);
 
-	int screenW = _renderManager->GetWidth();
-	int screenH = _renderManager->GetHeight();
+	// --- layout constants ---
+	const int CELL_W = 88;
+	const int CELL_H = 72;
+	const int GRID_WIDTH = GRID_COLS * CELL_W;
+	const int GRID_HEIGHT = GRID_ROWS * CELL_H;
 
-	// --- main title at top ---
-	_titleFont->AddText("JELLY CAR", screenW / 2, 66 + 2, glm::vec3(0.19f, 0.14f, 0.17f), FontCenter);
-	_titleFont->AddText("JELLY CAR", screenW / 2, 66,     glm::vec3(0.71f, 0.16f, 0.18f), FontCenter);
-
-	// --- selected level title (smaller, below main title) ---
-	int selIdx = CurrentIndex();
-	_menuFont->AddText(_sceneFiles[selIdx], screenW / 2, 100 + 2, glm::vec3(0.19f, 0.14f, 0.17f), FontCenter);
-	_menuFont->AddText(_sceneFiles[selIdx], screenW / 2, 100,     glm::vec3(1.0f, 0.65f, 0.0f),   FontCenter);
-
-	// --- layout: grid on left, image on right, centered ---
-	const int CELL_W = 80;
-	const int CELL_H = 65;
-	const int GRID_WIDTH = GRID_COLS * CELL_W;  // 320px
-	const int GRID_HEIGHT = GRID_ROWS * CELL_H; // 195px
-
-	// thumbnail dimensions (scaled)
 	float thumbScale = 0.95f;
 	int thumbW = (int)(_levelImage->GetTexture()->GetWidth() * thumbScale);
 	int thumbH = (int)(_levelImage->GetTexture()->GetHeight() * thumbScale);
 
-	// total width of both panels + spacing
-	int spacing = 50;
-	int totalWidth = GRID_WIDTH + spacing + thumbW;
+	int spacing = 36;
+	int totalWidth = GRID_WIDTH + spacing + thumbW + 48;
 	int contentStartX = (screenW - totalWidth) / 2;
+	int gridStartX = contentStartX + 24;
 
-	// grid on left
-	int gridStartX = contentStartX;
-	int gridStartY = 180;
+	// --- title bar ---
+	int titlePanelW = 520;
+	int titlePanelH = 72;
+	int titlePanelX = (screenW - titlePanelW) / 2;
+	int titlePanelY = 28;
+	ui->DrawPanel(titlePanelX, titlePanelY, titlePanelW, titlePanelH, UiTheme::BarRadius(), _projection);
+
+	_titleFont->AddText("JELLY CAR",
+		UiLayout::CenterX(titlePanelX, titlePanelW),
+		UiLayout::BaselineInPanel(titlePanelY, titlePanelH, UiLayout::TitleFontSize),
+		UiTheme::TextHighlight(), FontCenter);
+
+	// --- selected level name ---
+	int selIdx = CurrentIndex();
+	int levelPanelW = 480;
+	int levelPanelH = 40;
+	int levelPanelX = (screenW - levelPanelW) / 2;
+	int levelPanelY = titlePanelY + titlePanelH + 8;
+	ui->DrawPanel(levelPanelX, levelPanelY, levelPanelW, levelPanelH, UiTheme::BarRadius(), _projection);
+
+	_menuFont->AddText(_sceneFiles[selIdx],
+		UiLayout::CenterX(levelPanelX, levelPanelW),
+		UiLayout::BaselineCenter(levelPanelY, levelPanelH, UiLayout::MenuFontSize),
+		UiTheme::TextAccent(), FontCenter);
+
+	// --- main grid panel ---
+	const int pageFooterH = 34;
+	int panelW = totalWidth;
+	int panelH = GRID_HEIGHT + pageFooterH;
+	int panelX = contentStartX;
+	int panelY = levelPanelY + levelPanelH + 10;
+	int gridStartY = panelY + 14;
+	ui->DrawPanel(panelX, panelY, panelW, panelH, UiTheme::PanelRadius(), _projection);
 
 	int totalLevels = (int)_sceneFiles.size();
-	int pageBase    = _currentPage * PAGE_SIZE;
+	int pageBase = _currentPage * PAGE_SIZE;
 
-	// draw grid cells
+	// --- grid cells ---
 	for (int row = 0; row < GRID_ROWS; row++)
 	{
 		for (int col = 0; col < GRID_COLS; col++)
@@ -426,20 +437,18 @@ void JellyMenuBetter::Draw(GameManager* manager)
 				continue;
 
 			bool selected = (col == _gridCol && row == _gridRow);
+			int boxW = CELL_W - 8;
+			int boxH = CELL_H - 8;
+			int boxX = gridStartX + col * CELL_W;
+			int boxY = gridStartY + row * CELL_H;
 
-			int cellX = gridStartX + col * CELL_W;
-			int cellY = gridStartY + row * CELL_H;
+			ui->DrawCell(boxX, boxY, boxW, boxH, selected, _focusPulse, _projection);
 
-			// draw rounded box behind cell (rounded_box.png is 70x55, drawn at 1:1 scale)
-			_boxSprite->SetPosition(glm::vec2(cellX + CELL_W / 2, cellY + CELL_H / 2));
-			_boxSprite->SetScale(glm::vec2(1.0f, 1.0f));
-			_boxSprite->Draw(_projection);
+			int cx = UiLayout::CenterX(boxX, boxW);
 
-			// level number top-left, time bottom-center
 			char numBuf[8];
 			sprintf(numBuf, "%d", idx + 1);
-			glm::vec3 nameCol = selected ? glm::vec3(0.71f, 0.16f, 0.18f) : glm::vec3(0.19f, 0.14f, 0.17f);
-			_menuFont->AddText(numBuf, cellX + 18, cellY + 30, nameCol, FontLeft);
+			glm::vec3 nameCol = selected ? UiTheme::TextHighlight() : UiTheme::TextPrimary();
 
 			char timeBuf[12];
 			float t = _levelManager->GetTime(_sceneFiles[idx]);
@@ -448,36 +457,49 @@ void JellyMenuBetter::Draw(GameManager* manager)
 			else
 				sprintf(timeBuf, "--");
 
-			glm::vec3 timeCol = selected ? glm::vec3(0.0f, 0.84f, 0.0f) : glm::vec3(0.5f, 0.5f, 0.5f);
-			_smallFont->AddText(timeBuf, cellX + CELL_W / 2, cellY + CELL_H - 16, timeCol, FontCenter);
+			glm::vec3 timeCol = selected ? UiTheme::TextSuccess() : UiTheme::TextMuted();
+			int timeY = UiLayout::BaselineRow(boxY, boxH, 1, 2, UiLayout::SmallFontSize);
+			_smallFont->AddText(timeBuf, cx, timeY, timeCol, FontCenter);
 
-			// selection highlight - number already turns red via nameCol
+			int numY = UiLayout::BaselineBetweenTopAndLine(boxY, timeY, UiLayout::MenuFontSize);
+			_menuFont->AddText(numBuf, cx, numY, nameCol, FontCenter);
 		}
 	}
 
-	// page indicator below grid
+	// page indicator — centered in footer band below grid
 	{
 		char pageBuf[32];
-		sprintf(pageBuf, "Page %d/%d", _currentPage + 1, _totalPages);
-		int pageY = gridStartY + GRID_HEIGHT + 8;
-		_smallFont->AddText(pageBuf, gridStartX + GRID_WIDTH / 2, pageY, glm::vec3(0.71f, 0.16f, 0.18f), FontCenter);
+		sprintf(pageBuf, "Page %d / %d", _currentPage + 1, _totalPages);
+		int gridBottom = gridStartY + GRID_HEIGHT;
+		int footerY = gridBottom;
+		int footerH = (panelY + panelH) - gridBottom;
+		_smallFont->AddText(pageBuf,
+			UiLayout::CenterX(panelX, panelW),
+			UiLayout::BaselineCenter(footerY, footerH, UiLayout::SmallFontSize),
+			UiTheme::TextMuted(), FontCenter);
 	}
 
 	// --- right panel: thumbnail + stats ---
 	{
-		int imageStartX = gridStartX + GRID_WIDTH + spacing;
+		int panelRight = panelX + panelW;
 		int imageStartY = gridStartY;
+		int detailPanelX = gridStartX + GRID_WIDTH + spacing - 16;
+		int detailPanelW = panelRight - detailPanelX;
+		int detailPanelH = thumbH + 100;
+		int detailPanelY = imageStartY - 12;
+		ui->DrawPanel(detailPanelX, detailPanelY, detailPanelW, detailPanelH, UiTheme::PanelRadius(), _projection);
 
-		// thumbnail (scaled)
 		_levelImage->SetScale(glm::vec2(thumbScale, thumbScale));
-		int thumbCX = imageStartX + thumbW / 2;
+		int thumbCX = UiLayout::CenterX(detailPanelX, detailPanelW);
 		int thumbCY = imageStartY + thumbH / 2;
 		_levelImage->SetPosition(glm::vec2(thumbCX, thumbCY));
 		_levelImage->Draw(_projection);
-		_levelImage->SetScale(glm::vec2(1.0f, 1.0f)); // reset scale
+		_levelImage->SetScale(glm::vec2(1.0f, 1.0f));
 
-		// time + jump stats below thumbnail (use menuFont for bigger text)
-		int statsY = imageStartY + thumbH + 24;
+		int statsTop = imageStartY + thumbH + 12;
+		int statsH = (detailPanelY + detailPanelH) - statsTop - 8;
+		int leftCx = detailPanelX + detailPanelW / 4;
+		int rightCx = detailPanelX + 3 * detailPanelW / 4;
 
 		char bufTime[16], bufJump[16];
 		float recTime = _levelManager->GetTime(_sceneFiles[selIdx]);
@@ -491,32 +513,33 @@ void JellyMenuBetter::Draw(GameManager* manager)
 		else
 			sprintf(bufJump, "%.2fm", recJump);
 
-		_menuFont->AddText(bufTime, thumbCX - 25, statsY + 1, glm::vec3(0.19f, 0.14f, 0.17f), FontRight);
-		_menuFont->AddText(bufTime, thumbCX - 25, statsY,     glm::vec3(0.0f,  0.84f, 0.0f),  FontRight);
+		int statRowY = UiLayout::BaselineRow(statsTop, statsH, 0, 2, UiLayout::MenuFontSize);
+		_menuFont->AddText(bufTime, leftCx, statRowY, UiTheme::TextSuccess(), FontCenter);
+		_menuFont->AddText(bufJump, rightCx, statRowY, UiTheme::TextHighlight(), FontCenter);
 
-		_menuFont->AddText(bufJump, thumbCX + 25, statsY + 1, glm::vec3(0.19f, 0.14f, 0.17f), FontLeft);
-		_menuFont->AddText(bufJump, thumbCX + 25, statsY,     glm::vec3(0.71f, 0.16f, 0.18f), FontLeft);
-
-		// skin name (use smallFont)
-		_smallFont->AddText(_carSkins[carcurrentPosition].name, thumbCX, statsY + 26 + 1, glm::vec3(0.19f, 0.14f, 0.17f), FontCenter);
-		_smallFont->AddText(_carSkins[carcurrentPosition].name, thumbCX, statsY + 26,     glm::vec3(1.0f,  0.65f, 0.0f),  FontCenter);
+		_smallFont->AddText(_carSkins[carcurrentPosition].name,
+			UiLayout::CenterX(detailPanelX, detailPanelW),
+			UiLayout::BaselineRow(statsTop, statsH, 1, 2, UiLayout::SmallFontSize),
+			UiTheme::TextAccent(), FontCenter);
 	}
 
-	// --- bottom bar: options / exit ---
+	// --- bottom bar ---
+	ui->DrawBottomBar(screenW, screenH, _projection);
+
 	{
-		int barY = screenH - 29;
-		int midX = screenW / 2;
+		int barX, barY, barW, barH;
+		ui->GetBottomBarRect(screenW, screenH, barX, barY, barW, barH);
+		int halfW = barW / 2;
 
-		_inputHelper->MenuActionSprite(MenuAction::MenuPause)->SetPosition(glm::vec2(midX - 40, barY));
-		_inputHelper->MenuActionSprite(MenuAction::MenuPause)->Draw(_projection);
-		_menuFont->AddText("Options", midX - 90, screenH - 19, glm::vec3(0.19f, 0.14f, 0.17f), FontRight);
+		UiPrompt::DrawPromptInSlot(ui, _smallFont, _menuFont, _projection,
+			barX, halfW, barY, barH,
+			_inputHelper->MenuActionLabel(MenuAction::MenuPause).c_str(), "Options");
 
-		_inputHelper->MenuActionSprite(MenuAction::MenuExit)->SetPosition(glm::vec2(midX + 40, barY));
-		_inputHelper->MenuActionSprite(MenuAction::MenuExit)->Draw(_projection);
-		_menuFont->AddText("Exit", midX + 90, screenH - 19, glm::vec3(0.19f, 0.14f, 0.17f), FontLeft);
+		UiPrompt::DrawPromptInSlot(ui, _smallFont, _menuFont, _projection,
+			barX + halfW, halfW, barY, barH,
+			_inputHelper->MenuActionLabel(MenuAction::MenuExit).c_str(), "Exit");
 	}
 
-	// flush text
 	_menuFont->Draw(_projection);
 	_titleFont->Draw(_projection);
 	_smallFont->Draw(_projection);

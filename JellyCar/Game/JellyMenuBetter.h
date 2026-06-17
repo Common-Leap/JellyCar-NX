@@ -62,7 +62,6 @@ private:
 	Shader* _shader;
 	Sprite* _backSprite;
 	Sprite* _levelImage;
-	Sprite* _boxSprite;
 
 	glm::mat4 _projection;
 	glm::mat4 _jellyProjection;
@@ -112,6 +111,9 @@ private:
 	std::vector<LevelSoftBody*> _gameBodies;
 
     JellyGame* _jellyGame;
+
+	float _focusPulse;
+	float _focusPhase;
 
 public:
 

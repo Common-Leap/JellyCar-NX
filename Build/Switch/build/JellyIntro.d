@@ -276,7 +276,9 @@ JellyIntro.o: \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/JellyOptions.h \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/JellyMenuBetter.h \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/JellyGame.h \
- /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/JellyHelper.h
+ /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/JellyHelper.h \
+ /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/RectangleDrawer.h \
+ /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/UiTheme.h
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/JellyIntro.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/System/GameState.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/System/GameManager.h:
@@ -554,3 +556,5 @@ JellyIntro.o: \
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/JellyMenuBetter.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/JellyGame.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/JellyHelper.h:
+/home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/RectangleDrawer.h:
+/home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/UiTheme.h:

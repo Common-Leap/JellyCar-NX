@@ -5,6 +5,7 @@
 #include <Andromeda/Graphics/ShaderManager.h>
 #include <Andromeda/Graphics/Shader.h>
 #include <Andromeda/Graphics/VertexArrayObject.h>
+#include <Andromeda/Graphics/Sprite.h>
 #include <glm/glm.hpp>
 
 using namespace Andromeda::Graphics;
@@ -14,11 +15,14 @@ class RectangleDrawer
 private:
 	static RectangleDrawer* _instance;
 
-	Shader* _colorShader;
-	VertexArrayObject* _rectVAO;
+	Shader* _roundedShader;
+	Shader* _gradientShader;
+	VertexArrayObject* _quadVAO;
 	bool _initialized;
 
 	RectangleDrawer();
+
+	void DrawQuad(int x, int y, int width, int height, Shader* shader, glm::mat4& projection);
 
 public:
 	static RectangleDrawer* Instance();
@@ -26,14 +30,28 @@ public:
 	void Init();
 	void Cleanup();
 
-	// Draw a filled rectangle
-	void DrawRect(int x, int y, int width, int height, glm::vec4 color, glm::mat4& projection);
+	void DrawPaperBackground(Sprite* paper, int screenW, int screenH, glm::mat4& projection);
 
-	// Draw a rectangle outline
-	void DrawRectOutline(int x, int y, int width, int height, glm::vec4 color, int lineWidth, glm::mat4& projection);
+	void DrawRoundedRect(int x, int y, int width, int height, float cornerRadius,
+		glm::vec4 fillColor, glm::vec4 borderColor, float borderWidth, glm::mat4& projection);
 
-	// Draw a rounded rectangle (approximated with corners)
-	void DrawRoundedRect(int x, int y, int width, int height, int cornerRadius, glm::vec4 color, glm::mat4& projection);
+	void DrawRoundedRect(int x, int y, int width, int height, float cornerRadius,
+		glm::vec4 fillColor, glm::vec4 fillColor2, glm::vec4 borderColor, float borderWidth, glm::mat4& projection);
+
+	void DrawPanel(int x, int y, int width, int height, float cornerRadius, glm::mat4& projection);
+
+	void DrawCell(int x, int y, int width, int height, bool selected, float pulse, glm::mat4& projection);
+
+	void DrawProgressBar(int x, int y, int width, int height, float cornerRadius,
+		float fillAmount, bool focused, glm::mat4& projection);
+
+	void DrawDimOverlay(int screenW, int screenH, float alpha, glm::mat4& projection);
+
+	void DrawHighlightRow(int x, int y, int width, int height, float cornerRadius, glm::mat4& projection);
+
+	void DrawBottomBar(int screenW, int screenH, glm::mat4& projection);
+
+	void GetBottomBarRect(int screenW, int screenH, int& x, int& y, int& w, int& h);
 };
 
 #endif

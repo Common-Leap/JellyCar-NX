@@ -273,7 +273,9 @@ JellySplash.o: \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/AudioHelper.h \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/Audio/Sound.h \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/Audio/AudioManager.h \
- /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/JellyCore.h
+ /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/JellyCore.h \
+ /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/RectangleDrawer.h \
+ /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/UiTheme.h
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/JellySplash.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/System/GameState.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/System/GameManager.h:
@@ -548,3 +550,5 @@ JellySplash.o: \
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/Audio/Sound.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/Audio/AudioManager.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/JellyCore.h:
+/home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/RectangleDrawer.h:
+/home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/UiTheme.h:

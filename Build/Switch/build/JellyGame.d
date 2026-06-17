@@ -274,7 +274,13 @@ JellyGame.o: \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/Audio/AudioManager.h \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/JellyOptions.h \
  /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/JellyCore.h \
- /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/JellyHelper.h
+ /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/JellyHelper.h \
+ /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/RectangleDrawer.h \
+ /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/UiTheme.h \
+ /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/UiLayout.h \
+ /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/UiPrompt.h \
+ /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/RectangleDrawer.h \
+ /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/UiLayout.h
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/JellyGame.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/System/GameState.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../Andromeda-Lib/Andromeda/System/GameManager.h:
@@ -550,3 +556,9 @@ JellyGame.o: \
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/JellyOptions.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/JellyCore.h:
 /home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/JellyHelper.h:
+/home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/RectangleDrawer.h:
+/home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/UiTheme.h:
+/home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/UiLayout.h:
+/home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/UiPrompt.h:
+/home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/RectangleDrawer.h:
+/home/leap/Workshop/JellyCar/JellyCar/Build/Switch/../../../JellyCar/JellyCar/Game/../Utils/UiLayout.h:

@@ -32,6 +32,7 @@ private:
 
 	//shader
 	Shader* _shader;
+	Sprite* _backSprite;
 	Sprite* _sprite;
 	Texture* _image;
 

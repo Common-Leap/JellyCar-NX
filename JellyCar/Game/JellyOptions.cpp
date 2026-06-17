@@ -2,6 +2,10 @@
 
 #include <Andromeda/Utils/Logger.h>
 #include "../Utils/JellyHelper.h"
+#include "../Utils/RectangleDrawer.h"
+#include "../Utils/UiTheme.h"
+#include "../Utils/UiLayout.h"
+#include "../Utils/UiPrompt.h"
 
 #include <stdio.h> 
 #include <sstream> 
@@ -674,34 +678,15 @@ void JellyOptions::Update(GameManager* manager)
 
 void JellyOptions::Draw(GameManager* manager)
 {
-	//start frame
-	_renderManager->StartFrame();
+	RectangleDrawer* ui = RectangleDrawer::Instance();
 
-	//clear screen
+	_renderManager->StartFrame();
 	_renderManager->ClearScreen();
 
-    //paper background
-    {
-        int backWidth = _backSprite->GetTexture()->GetWidth();
-        int backHeight = _backSprite->GetTexture()->GetHeight();
+	int screenW = _renderManager->GetWidth();
+	int screenH = _renderManager->GetHeight();
 
-        int columns = ceil((float)_renderManager->GetWidth() / (float)backWidth);
-        int rows = ceil((float)_renderManager->GetHeight() / (float)backHeight);
-
-        _backSprite->SetScale(glm::vec2(1.0f, 1.0f));
-
-        for (size_t y = 0; y < rows; y++)
-        {
-            for (size_t x = 0; x < columns; x++)
-            {
-                int posx = (backWidth * x) + (backWidth / 2);
-                int posy = (backHeight * y) + (backHeight / 2);
-
-                _backSprite->SetPosition(glm::vec2(posx, posy));
-                _backSprite->Draw(_projection);
-            }
-        }
-    }
+	ui->DrawPaperBackground(_backSprite, screenW, screenH, _projection);
 
 	//menu level drawing
 	if (_optionsState == Menu)
@@ -731,290 +716,146 @@ void JellyOptions::Draw(GameManager* manager)
 		}
 	}
 
-	int centerX = _renderManager->GetWidth() / 2;
+	int centerX = screenW / 2;
 
 	switch (_optionsState)
 	{
 		case JellyOptionsState::Menu:
 		{
-			_titleFont->AddText("Options", centerX, 57, glm::vec3(0.19f, 0.14f, 0.17f), FontCenter);
-			_titleFont->AddText("Options", centerX, 55, glm::vec3(1.0f, 0.65f, 0.0f), FontCenter);
+			ui->DrawPanel(centerX - 160, 36, 320, 56, UiTheme::BarRadius(), _projection);
+			_titleFont->AddText("Options", centerX, UiLayout::BaselineInPanel(36, 56, UiLayout::TitleFontSize),
+				UiTheme::TextHighlight(), FontCenter);
 		}
 		break;
 		case JellyOptionsState::Sound:
 		{
+			int panelX = centerX - 340;
+			int panelY = 100;
+			int panelW = 680;
+			int panelH = 420;
+			ui->DrawPanel(panelX, panelY, panelW, panelH, UiTheme::PanelRadius(), _projection);
 
-			int leftSpritePosX = _renderManager->GetWidth() / 2 - (260);
-			int rightSpritePosX = _renderManager->GetWidth() / 2 + (260);
+			int labelX = panelX + 36;
+			int barX = centerX - 90;
+			int barW = 360;
+			int barH = 22;
+			int rowStep = 120;
+			int firstBarY = panelY + 110;
 
+			ui->DrawPanel(centerX - 200, 36, 400, 56, UiTheme::BarRadius(), _projection);
+			_titleFont->AddText("Sound Levels", centerX, UiLayout::BaselineInPanel(36, 56, UiLayout::TitleFontSize),
+				UiTheme::TextHighlight(), FontCenter);
 
-			int leftRightPosY = _renderManager->GetHeight() / 2 + (_renderManager->GetHeight() * 0.08f);
+			const char* labels[] = { "Car", "Sounds", "Music" };
+			float levels[] = { _optionsCarLevel / 10.0f, _optionsSoundLevel / 10.0f, _optionsMusicLevel / 10.0f };
+			int levelValues[] = { _optionsCarLevel, _optionsSoundLevel, _optionsMusicLevel };
 
-
-			_titleFont->AddText("Sound Levels", centerX, 57, glm::vec3(0.19f, 0.14f, 0.17f), FontCenter);
-			_titleFont->AddText("Sound Levels", centerX, 54, glm::vec3(1.0f, 0.65f, 0.0f), FontCenter);
-
-			_menuFont->AddText("Car", leftSpritePosX + 30, leftRightPosY + 2 - 140 - 55, glm::vec3(0.19f, 0.14f, 0.17f), FontLeft);
-			_menuFont->AddText("Car", leftSpritePosX + 30, leftRightPosY - 140 - 55, glm::vec3(1.0f, 0.65f, 0.0f), FontLeft);
-
-			_menuFont->AddText("Sounds", leftSpritePosX + 30, leftRightPosY + 2 - 55, glm::vec3(0.19f, 0.14f, 0.17f), FontLeft);
-			_menuFont->AddText("Sounds", leftSpritePosX + 30, leftRightPosY - 55, glm::vec3(1.0f, 0.65f, 0.0f), FontLeft);
-
-			_menuFont->AddText("Music", leftSpritePosX + 30, leftRightPosY + 2 + 140 - 55, glm::vec3(0.19f, 0.14f, 0.17f), FontLeft);
-			_menuFont->AddText("Music", leftSpritePosX + 30, leftRightPosY + 140 - 55, glm::vec3(1.0f, 0.65f, 0.0f), FontLeft);
-
-			//rounded back
-			//_backRoundSprite->SetSolor(glm::vec4(1.0f, 1.0f, 1.0f, _alphaScale));
-			//_backRoundSprite->SetScale(glm::vec2(0.8f, 0.8f));
-
-			//_backRoundSprite->SetPosition(glm::vec2(210, 170 + (_soundPosition * 140)));
-			//_backRoundSprite->Draw(_projection);
-
-			//_backRoundSprite->SetPosition(glm::vec2(750, 170 + (_soundPosition * 140)));
-			//_backRoundSprite->Draw(_projection);
-
-			//left side
-			_leftSprite->SetScale(glm::vec2(0.8f, 0.8f));
-
-
-            if (_soundPosition == 0)
-            {
-				_leftSprite->SetSolor(glm::vec4(1.0f, 1.0f, 1.0f, _alphaScale));
-            }else
-            {
-				_leftSprite->SetSolor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
-            }
-			_leftSprite->SetPosition(glm::vec2(leftSpritePosX, leftRightPosY - 140));
-			_leftSprite->Draw(_projection);
-
-			if (_soundPosition == 1)
+			for (int i = 0; i < 3; i++)
 			{
-				_leftSprite->SetSolor(glm::vec4(1.0f, 1.0f, 1.0f, _alphaScale));
-			}
-			else
-			{
-				_leftSprite->SetSolor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
-			}
-			_leftSprite->SetPosition(glm::vec2(leftSpritePosX, leftRightPosY));
-			_leftSprite->Draw(_projection);
+				int barY = firstBarY + i * rowStep;
+				int labelY = UiLayout::BaselineCenter(barY, barH, UiLayout::MenuFontSize);
+				glm::vec3 labelCol = (_soundPosition == i) ? UiTheme::TextHighlight() : UiTheme::TextPrimary();
+				_menuFont->AddText(labels[i], labelX, labelY, labelCol, FontLeft);
 
+				ui->DrawProgressBar(barX, barY, barW, barH, 11.0f, levels[i], _soundPosition == i, _projection);
 
-			if (_soundPosition == 2)
-			{
-				_leftSprite->SetSolor(glm::vec4(1.0f, 1.0f, 1.0f, _alphaScale));
-			}
-			else
-			{
-				_leftSprite->SetSolor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
-			}
-			_leftSprite->SetPosition(glm::vec2(leftSpritePosX, leftRightPosY + 140));
-			_leftSprite->Draw(_projection);
-
-			//right side
-			_rightSprite->SetScale(glm::vec2(0.8f, 0.8f));
-
-			if (_soundPosition == 0)
-			{
-				_rightSprite->SetSolor(glm::vec4(1.0f, 1.0f, 1.0f, _alphaScale));
-			}
-			else
-			{
-				_rightSprite->SetSolor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
-			}
-			_rightSprite->SetPosition(glm::vec2(rightSpritePosX, leftRightPosY - 140));
-			_rightSprite->Draw(_projection);
-
-
-			if (_soundPosition == 1)
-			{
-				_rightSprite->SetSolor(glm::vec4(1.0f, 1.0f, 1.0f, _alphaScale));
-			}
-			else
-			{
-				_rightSprite->SetSolor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
-			}
-			_rightSprite->SetPosition(glm::vec2(rightSpritePosX, leftRightPosY));
-			_rightSprite->Draw(_projection);
-
-
-			if (_soundPosition == 2)
-			{
-				_rightSprite->SetSolor(glm::vec4(1.0f, 1.0f, 1.0f, _alphaScale));
-			}
-			else
-			{
-				_rightSprite->SetSolor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
-			}
-			_rightSprite->SetPosition(glm::vec2(rightSpritePosX, leftRightPosY + 140));
-			_rightSprite->Draw(_projection);
-
-			//sound bars
-			_barSprite->SetScale(glm::vec2(0.8f, 0.8f));
-			_barBlueSprite->SetScale(glm::vec2(0.8f, 0.8f));
-
-
-			int startBar = _renderManager->GetWidth() / 2 - (180);
-
-			//int startBar = 300;
-
-			//car
-			for (int i = 0; i < 10;i++)
-			{
-				if (i < _optionsCarLevel)
-				{
-					_barSprite->SetPosition(glm::vec2(startBar + (i * 40), leftRightPosY - 140));
-					_barSprite->Draw(_projection);
-				}else
-				{
-					_barBlueSprite->SetPosition(glm::vec2(startBar + (i * 40), leftRightPosY - 140));
-					_barBlueSprite->Draw(_projection);
-				}
-			}
-
-			//sounds
-			for (int i = 0; i < 10; i++)
-			{
-				if (i < _optionsSoundLevel)
-				{
-					_barSprite->SetPosition(glm::vec2(startBar + (i * 40), leftRightPosY ));
-					_barSprite->Draw(_projection);
-				}else
-				{
-					_barBlueSprite->SetPosition(glm::vec2(startBar + (i * 40), leftRightPosY ));
-					_barBlueSprite->Draw(_projection);
-				}
-			}
-
-			//music
-			for (int i = 0; i < 10; i++)
-			{
-				if (i < _optionsMusicLevel)
-				{
-					_barSprite->SetPosition(glm::vec2(startBar + (i * 40), leftRightPosY + 140));
-					_barSprite->Draw(_projection);
-				}else
-				{
-					_barBlueSprite->SetPosition(glm::vec2(startBar + (i * 40), leftRightPosY + 140));
-					_barBlueSprite->Draw(_projection);					
-				}
+				char levelBuf[8];
+				sprintf(levelBuf, "%d", levelValues[i]);
+				_smallFont->AddText(levelBuf, barX + barW + 20,
+					UiLayout::BaselineCenter(barY, barH, UiLayout::SmallFontSize),
+					UiTheme::TextMuted(), FontLeft);
 			}
 		}
 		break;
 		case JellyOptionsState::Controls: 
 		{
-			if (_changeBinding)
-			{
-				_backSelectSprite->SetSolor(glm::vec4(1.0f, 1.0f, 1.0f, _alphaScale));
-			}
-			else
-			{
-				_backSelectSprite->SetSolor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
-			}
-
-			int startPosition = _renderManager->GetHeight() / 2 - 100;
+			int startPosition = screenH / 2 - 100;
 			int step = 45;
+			int rowW = 280;
+			int rowH = 38;
 
-			//draw backgroud bar
-			_backSelectSprite->SetScale(glm::vec2(0.5f,1.0f));
+			ui->DrawPanel(centerX - 200, 36, 400, 56, UiTheme::BarRadius(), _projection);
+			_titleFont->AddText("Car Controls", centerX, UiLayout::BaselineInPanel(36, 56, UiLayout::TitleFontSize),
+				UiTheme::TextHighlight(), FontCenter);
+
+			ui->DrawPanel(centerX - 340, 96, 680, 380, UiTheme::PanelRadius(), _projection);
 
 			if (_selctedPosition < 4)
 			{
-				_backSelectSprite->SetPosition(glm::vec2(centerX - 128, startPosition - 10 + (_selctedPosition * step)));
+				ui->DrawHighlightRow(centerX - 320, startPosition - 14 + (_selctedPosition * step), rowW, rowH, 12.0f, _projection);
 			}
 			else
 			{
-				_backSelectSprite->SetPosition(glm::vec2(centerX + 128, startPosition - 10 + (_selctedPosition * step) - (step * 4)));
-			}			
-			
-			_backSelectSprite->Draw(_projection);
-
-			_titleFont->AddText("Car Controls", centerX, 57, glm::vec3(0.19f, 0.14f, 0.17f), FontCenter);
-			_titleFont->AddText("Car Controls", centerX, 54, glm::vec3(1.0f, 0.65f, 0.0f), FontCenter);			
-
-			//draw text
-			int startY = startPosition;
-
-			//7 left positions
-			for (size_t i = 0; i < 4; i++)
-			{
-				_menuFont->AddText(_actionTranslation[_carActions[i]], centerX - 90, startY, glm::vec3(0.19f, 0.14f, 0.17f), FontRight);
-				_menuFont->AddText(_actionTranslation[_carActions[i]], centerX - 90, startY - 2, glm::vec3(1.0f, 0.65f, 0.0f), FontRight);
-
-				startY += step;
+				ui->DrawHighlightRow(centerX + 40, startPosition - 14 + (_selctedPosition * step) - (step * 4), rowW, rowH, 12.0f, _projection);
 			}
 
-			//7 right positions
-			startY = startPosition;
+			for (size_t i = 0; i < 4; i++)
+			{
+				int rowY = startPosition - 14 + (int)i * step;
+				int textY = UiLayout::BaselineCenter(rowY, rowH, UiLayout::MenuFontSize);
+				glm::vec3 col = (int)i == _selctedPosition && !_changeBinding ? UiTheme::TextHighlight() : UiTheme::TextPrimary();
+				_menuFont->AddText(_actionTranslation[_carActions[i]], centerX - 90, textY, col, FontRight);
+			}
+
 			for (size_t i = 4; i < _carActions.size(); i++)
 			{
-				_menuFont->AddText(_actionTranslation[_carActions[i]], centerX + 90, startY, glm::vec3(0.19f, 0.14f, 0.17f), FontLeft);
-				_menuFont->AddText(_actionTranslation[_carActions[i]], centerX + 90, startY - 2 , glm::vec3(1.0f, 0.65f, 0.0f), FontLeft);
-
-				startY += step;
+				int rowY = startPosition - 14 + ((int)i - 4) * step;
+				int textY = UiLayout::BaselineCenter(rowY, rowH, UiLayout::MenuFontSize);
+				glm::vec3 col = (int)i == _selctedPosition && !_changeBinding ? UiTheme::TextHighlight() : UiTheme::TextPrimary();
+				_menuFont->AddText(_actionTranslation[_carActions[i]], centerX + 90, textY, col, FontLeft);
 			}
 
-			//draw 7 left icons
-			startY = startPosition - 10;
 			for (size_t i = 0; i < 4; i++)
 			{
-				//InputAction action = static_cast<InputAction>(i);
-
-				if (!(_changeBinding && i == _selctedPosition))
+				int rowY = startPosition - 14 + (int)i * step;
+				int iconCy = UiLayout::CenterY(rowY, rowH);
+				if (!(_changeBinding && (int)i == _selctedPosition))
 				{
-					_inputHelper->CarActionSprite(_carActions[i])->SetPosition(glm::vec2(centerX - 40, startY));
-					_inputHelper->CarActionSprite(_carActions[i])->Draw(_projection);
-
-					//_menuFont->AddText(_inputHelper->InputName(action), glm::vec2(centerX - 40, startY + 10), glm::vec3(0.19f, 0.14f, 0.17f), FontCenter);
+					UiPrompt::DrawInputBadge(ui, _smallFont, _projection, centerX - 40, iconCy,
+						_inputHelper->CarActionLabel(_carActions[i]).c_str());
 				}
-
-				startY += step;
 			}
 
-			//draw 7 right icons
-			startY = startPosition - 10;
 			for (size_t i = 4; i < _carActions.size(); i++)
 			{
-				//InputAction action = static_cast<InputAction>(i);
-
-				if (!(_changeBinding && i == _selctedPosition))
+				int rowY = startPosition - 14 + ((int)i - 4) * step;
+				int iconCy = UiLayout::CenterY(rowY, rowH);
+				if (!(_changeBinding && (int)i == _selctedPosition))
 				{
-					_inputHelper->CarActionSprite(_carActions[i])->SetPosition(glm::vec2(centerX + 40, startY));
-					_inputHelper->CarActionSprite(_carActions[i])->Draw(_projection);
-
-					//_menuFont->AddText(_inputHelper->InputName(action), glm::vec2(centerX + 40, startY + 10), glm::vec3(0.19f, 0.14f, 0.17f), FontCenter);
-				}				
-
-				startY += step;
+					UiPrompt::DrawInputBadge(ui, _smallFont, _projection, centerX + 40, iconCy,
+						_inputHelper->CarActionLabel(_carActions[i]).c_str());
+				}
 			}
 		}
 		break;
 		case JellyOptionsState::Credits:
 		{
-			_titleFont->AddText("Credits", centerX, 57, glm::vec3(0.19f, 0.14f, 0.17f), FontCenter);
-			_titleFont->AddText("Credits", centerX, 54, glm::vec3(1.0f, 0.65f, 0.0f), FontCenter);
+			ui->DrawPanel(centerX - 160, 36, 320, 56, UiTheme::BarRadius(), _projection);
+			_titleFont->AddText("Credits", centerX, UiLayout::BaselineInPanel(36, 56, UiLayout::TitleFontSize),
+				UiTheme::TextHighlight(), FontCenter);
 
 			for (size_t i = 0; i < _credits.size(); i++)
 			{
-				if (_credits[i].StartPosition + _creditsPosition  > (_renderManager->GetWidth() * 0.13f) && _credits[i].StartPosition + _creditsPosition < (_renderManager->GetHeight() - (_renderManager->GetHeight() * 0.08f)))
+				if (_credits[i].StartPosition + _creditsPosition  > (screenW * 0.13f) && _credits[i].StartPosition + _creditsPosition < (screenH - (screenH * 0.08f)))
 				{
-					_menuFont->AddText(_credits[i].Content, centerX, _credits[i].StartPosition + _creditsPosition, glm::vec3(0.19f, 0.14f, 0.17f), FontCenter);
-					_menuFont->AddText(_credits[i].Content, centerX, _credits[i].StartPosition - 2 + _creditsPosition, glm::vec3(1.0f, 0.65f, 0.0f), FontCenter);
+					_menuFont->AddText(_credits[i].Content, centerX, _credits[i].StartPosition + _creditsPosition,
+						UiTheme::TextPrimary(), FontCenter);
 				}
 			}
-
 		}
 		break;
 		case JellyOptionsState::Libs:
 		{
-			_titleFont->AddText("Libs", _renderManager->GetWidth() / 2, 57, glm::vec3(0.19f, 0.14f, 0.17f), FontCenter);
-			_titleFont->AddText("Libs", _renderManager->GetWidth() / 2, 54, glm::vec3(1.0f, 0.65f, 0.0f), FontCenter);
+			ui->DrawPanel(centerX - 120, 36, 240, 56, UiTheme::BarRadius(), _projection);
+			_titleFont->AddText("Libs", centerX, UiLayout::BaselineInPanel(36, 56, UiLayout::TitleFontSize),
+				UiTheme::TextHighlight(), FontCenter);
 
 			for (size_t i = 0; i < _libs.size(); i++)
 			{
-				if (_libs[i].StartPosition + _libsPosition  > (_renderManager->GetWidth() * 0.13f) && _libs[i].StartPosition + _libsPosition < (_renderManager->GetHeight() - (_renderManager->GetHeight() * 0.08f)))
+				if (_libs[i].StartPosition + _libsPosition  > (screenW * 0.13f) && _libs[i].StartPosition + _libsPosition < (screenH - (screenH * 0.08f)))
 				{
-					_menuFont->AddText(_libs[i].Content, centerX, _libs[i].StartPosition + _libsPosition, glm::vec3(0.19f, 0.14f, 0.17f), FontCenter);
-					_menuFont->AddText(_libs[i].Content, centerX, _libs[i].StartPosition - 2 + _libsPosition, glm::vec3(1.0f, 0.65f, 0.0f), FontCenter);
+					_menuFont->AddText(_libs[i].Content, centerX, _libs[i].StartPosition + _libsPosition,
+						UiTheme::TextPrimary(), FontCenter);
 				}
 			}
 		}
@@ -1026,20 +867,18 @@ void JellyOptions::Draw(GameManager* manager)
 		break;
 	}
 
-	//back to menu
-	//_inputHelper->ActionSprite(InputAction::Back)->SetPosition(glm::vec2((_renderManager->GetWidth() / 2), 528));
-	_inputHelper->MenuActionSprite(MenuAction::MenuBack)->SetPosition(glm::vec2((_renderManager->GetWidth() / 2), _renderManager->GetHeight() - 20));
-	_inputHelper->MenuActionSprite(MenuAction::MenuBack)->Draw(_projection);
+	ui->DrawBottomBar(screenW, screenH, _projection);
 
-	//back text
-	//_menuFont->AddText("Back", (_renderManager->GetWidth() / 2) + 30, 538, glm::vec3(0.19f, 0.14f, 0.17f), FontLeft);
-	_menuFont->AddText("Back", (_renderManager->GetWidth() / 2) + 30, _renderManager->GetHeight() - 6 , glm::vec3(0.19f, 0.14f, 0.17f), FontLeft);
+	int barX, barY, barW, barH;
+	ui->GetBottomBarRect(screenW, screenH, barX, barY, barW, barH);
 
-	//draw main text
+	UiPrompt::DrawPromptInSlot(ui, _smallFont, _menuFont, _projection,
+		barX, barW, barY, barH,
+		_inputHelper->MenuActionLabel(MenuAction::MenuBack).c_str(), "Back");
+
 	_menuFont->Draw(_projection);
 	_titleFont->Draw(_projection);
 	_smallFont->Draw(_projection);
 
-	//end frame
 	_renderManager->EndFrame();
 }

@@ -123,6 +123,9 @@ public:
 	Sprite* CarActionSprite(CarAction action);
 	Sprite* MenuActionSprite(MenuAction action);
 
+	std::string MenuActionLabel(MenuAction action);
+	std::string CarActionLabel(CarAction action);
+
 	bool ChangeInputForAction(CarAction action);
 
 	std::map<int, int> GetActionKeyMapping();

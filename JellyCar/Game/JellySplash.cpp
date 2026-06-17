@@ -1,16 +1,23 @@
 #include "JellySplash.h"
 #include "JellyIntro.h"
 
+#include "../Utils/RectangleDrawer.h"
+#include "../Utils/UiTheme.h"
+
 void JellySplash::Init()
 {
 	_renderManager = RenderManager::Instance();
 	_shaderManager = ShaderManager::Instance();
 	_textureManager = TextureManager::Instance();
 
-	_renderManager->SetClearColor(0x00000000);
+	_renderManager->SetClearColor(0xffffffff);
+
+	RectangleDrawer::Instance()->Init();
 
 	//load shader
 	_shader = _shaderManager->LoadFromFile("sprite", "Assets/Shaders/sprite", "Assets/Shaders/sprite", Textured);
+
+	_backSprite = new Sprite("paper", "Assets/Jelly/Texture/paper.png", "Assets/Shaders/sprite", "Assets/Shaders/sprite");
 
 
 	std::string splashFile = "Assets/Images/splash_switch.png";
@@ -56,6 +63,7 @@ void JellySplash::Enter()
 
 void JellySplash::CleanUp()
 {
+	delete _backSprite;
 	delete _sprite;
 }
 
@@ -134,9 +142,23 @@ void JellySplash::Draw(GameManager* manager)
 
 	//start frame
 	_renderManager->StartFrame();
-
-	//clear screen
 	_renderManager->ClearScreen();
+
+	int screenW = _renderManager->GetWidth();
+	int screenH = _renderManager->GetHeight();
+	RectangleDrawer* ui = RectangleDrawer::Instance();
+	ui->DrawPaperBackground(_backSprite, screenW, screenH, _projection);
+
+	int logoW = (int)(_sprite->GetTexture()->GetWidth());
+	int logoH = (int)(_sprite->GetTexture()->GetHeight());
+	int panelPad = 28;
+	ui->DrawPanel(
+		(screenW - logoW) / 2 - panelPad,
+		(screenH - logoH) / 2 - panelPad,
+		logoW + panelPad * 2,
+		logoH + panelPad * 2,
+		UiTheme::PanelRadius(),
+		_projection);
 
 	_sprite->Draw(_projection);
 

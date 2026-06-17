@@ -147,6 +147,8 @@ SRC_RENDERER	:=\
 	../../../JellyCar/JellyCar/Levels/GamePressureBody.cpp \
 	../../../JellyCar/JellyCar/Levels/GameSpringBody.cpp \
 	../../../JellyCar/JellyCar/Utils/JellyHelper.cpp \
+	../../../JellyCar/JellyCar/Utils/RectangleDrawer.cpp \
+	../../../JellyCar/JellyCar/Utils/UiPrompt.cpp \
 	../../../JellyCar/JellyCar/Utils/InputHelper.cpp \
 	../../../JellyCar/JellyCar/Utils/AudioHelper.cpp \
 	../../../JellyCar/JellyCar/Mods/ModLoader.cpp \

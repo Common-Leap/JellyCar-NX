@@ -5,6 +5,8 @@
 #include <Andromeda/Graphics/Sprite.h>
 #include <Andromeda/Utils/Logger.h>
 
+#include "../Utils/RectangleDrawer.h"
+
 JellyCore::JellyCore()
 {
 	_menuAtlas = 0;
@@ -26,6 +28,8 @@ JellyCore::~JellyCore()
 void JellyCore::Init()
 {
 	Andromeda::Utils::Logger::Instance()->Log("JellyCore::Init: begin\n");
+
+	RectangleDrawer::Instance()->Init();
 
 	//load basic shader
 	_spriteShader = ShaderManager::Instance()->LoadFromFile("font", "Assets/Shaders/font", "Assets/Shaders/font", TextureColor);
