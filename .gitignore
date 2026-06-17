@@ -1,14 +1,25 @@
-# Build output
-Build/Switch/build/
-Build/Switch/romfs/
-Build/Switch/.tmp/
-Build/Switch/JellyCar.elf
-Build/Switch/JellyCar.nro
-Build/Switch/JellyCar.nacp
-Build/Switch/JellyCar.nsp
-Build/Switch/JellyCar.nso
-Build/Switch/JellyCar.npdm
-Build/Switch/JellyCar.map
+# Compiled objects and dependency files
+**/*.o
+**/*.d
+**/*.lst
+
+# Switch / general build working directories
+**/build/
+**/romfs/
+**/.tmp/
+
+# Switch link and package outputs
+Build/Switch/*.elf
+Build/Switch/*.nro
+Build/Switch/*.nacp
+Build/Switch/*.nsp
+Build/Switch/*.nso
+Build/Switch/*.npdm
+Build/Switch/*.map
+
+# IDE user settings (machine-specific)
+Build/Windows/**/*.user
+Build/Windows/**/*.DotSettings.user
 
 # Generated assets
 Assets/Jelly/Texture/white.png
