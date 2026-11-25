@@ -122,41 +122,80 @@ void JellyOptions::Init()
 	dragBody = NULL;	
 }
 
+namespace
+{
+	const float HEADING_STEP = 82.0f;
+	const float ENTRY_STEP = 60.0f;
+	const float LINE_STEP = 40.0f;
+
+	//add a line below the last one
+	void AddLine(std::vector<Text>& lines, std::string content, float step)
+	{
+		lines.push_back(Text(content, lines.empty() ? 0.0f : lines.back().StartPosition + step));
+	}
+
+	void AddHeading(std::vector<Text>& lines, std::string content, std::string first)
+	{
+		AddLine(lines, content, 0.0f);
+		AddLine(lines, first, HEADING_STEP);
+	}
+
+	void AddEntry(std::vector<Text>& lines, std::string content, std::string second = "")
+	{
+		AddLine(lines, content, ENTRY_STEP);
+
+		if (!second.empty())
+		{
+			AddLine(lines, second, LINE_STEP);
+		}
+	}
+}
+
 void JellyOptions::InitCredits()
 {
-	_credits.push_back(Text("Thanks", 0));
-	_credits.push_back(Text("Walaber for original game", 82));
-	_credits.push_back(Text("Shadow for car skins", 142));
-	_credits.push_back(Text("Ruben Wolfe, SMOKE, TheFloW", 202));
-	_credits.push_back(Text("for support and testing", 242));
-	_credits.push_back(Text("Rinnegatamante and EasyRPG Team", 302));
-	_credits.push_back(Text("for the Audio Decoder used for Vita sound module", 342));
-	_credits.push_back(Text("St3f  for splash screen", 402));
-	_credits.push_back(Text("Team Molecule for HENkaku", 462));
-	_credits.push_back(Text("Everybody who contributed to vitasdk", 522));
-	_credits.push_back(Text("Switchbrew team", 582));
-	_credits.push_back(Text("Everybody who contributed to libnx", 642));
+	AddHeading(_credits, "Thanks", "Walaber for original game");
+	AddEntry(_credits, "DrakonPL for the original homebrew version");
+	AddEntry(_credits, "Shadow for car skins");
+	AddEntry(_credits, "Ruben Wolfe, SMOKE, TheFloW", "for support and testing");
+	AddEntry(_credits, "Rinnegatamante and EasyRPG Team", "for the Audio Decoder used for Vita sound module");
+	AddEntry(_credits, "St3f for splash screen");
+	AddEntry(_credits, "Team Molecule for HENkaku");
+	AddEntry(_credits, "Everybody who contributed to vitasdk");
+	AddEntry(_credits, "Switchbrew team");
+	AddEntry(_credits, "Everybody who contributed to libnx");
+
+	//this version
+	AddEntry(_credits, "Common Leap", "for the updated Switch and Switch 2 version");
+	AddEntry(_credits, "augiethecat", "for being cool and awesome");
+	AddEntry(_credits, "Lightos", "for helping me mod my Switch");
+	AddEntry(_credits, "kaiHEN developers", "for helping with Switch 2 support");
 }
 
 void JellyOptions::InitLibs()
 {
-	_libs.push_back(Text("Libs used for PC/Vita/Switch", 0));
-	_libs.push_back(Text("freetype", 82));
-	_libs.push_back(Text("freetype_gl", 142));
-	_libs.push_back(Text("glad", 202));
-	_libs.push_back(Text("glew", 262));
-	_libs.push_back(Text("glfw", 322));
-	_libs.push_back(Text("glm", 382));
-	_libs.push_back(Text("irrKlang", 442));
-	_libs.push_back(Text("JellyPhysics", 502));
-	_libs.push_back(Text("ogg", 562));
-	_libs.push_back(Text("SDL2", 622));
-	_libs.push_back(Text("stb", 682));
-	_libs.push_back(Text("speexdsp", 742));
-	_libs.push_back(Text("tinyxml", 802));
-	_libs.push_back(Text("vorbisfile", 862));
-	_libs.push_back(Text("vorbisenc", 922));
-	_libs.push_back(Text("vorbis", 982));
+	AddHeading(_libs, "Libraries used", "Andromeda-Lib");
+	AddEntry(_libs, "JellyPhysics");
+	AddEntry(_libs, "libnx and Mesa (Switch)");
+	AddEntry(_libs, "libounce and OunceVK (Switch 2)");
+	AddEntry(_libs, "glad");
+	AddEntry(_libs, "glm");
+	AddEntry(_libs, "stb");
+	AddEntry(_libs, "tinyobjloader");
+	AddEntry(_libs, "tinyxml");
+	AddEntry(_libs, "FreeType");
+	AddEntry(_libs, "freetype_gl");
+	AddEntry(_libs, "HarfBuzz");
+	AddEntry(_libs, "SDL2");
+	AddEntry(_libs, "SDL2_mixer");
+	AddEntry(_libs, "libogg");
+	AddEntry(_libs, "Tremor");
+	AddEntry(_libs, "Opus");
+	AddEntry(_libs, "opusfile");
+	AddEntry(_libs, "mpg123");
+	AddEntry(_libs, "libmodplug");
+	AddEntry(_libs, "libpng");
+	AddEntry(_libs, "zlib");
+	AddEntry(_libs, "bzip2");
 }
 
 void JellyOptions::InitActionNames()
