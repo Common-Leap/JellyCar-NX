@@ -27,8 +27,10 @@
 
 #include "../Utils/InputHelper.h"
 #include "../Utils/AudioHelper.h"
+#include "../Utils/TouchTargets.h"
 #include "JellyCore.h"
 #include "JellyGame.h"
+#include "JellyOptions.h"
 
 
 using namespace Andromeda::System;
@@ -41,6 +43,21 @@ using namespace JellyPhysics;
 class JellyMenuBetter : public GameState
 {
 private:
+
+	//what a touch can hit, the number of a level is added to the last one
+	enum TouchId
+	{
+		TouchPlay,
+		TouchOptions,
+		TouchExit,
+		TouchPagePrevious,
+		TouchPageNext,
+		TouchSkinPrevious,
+		TouchSkinNext,
+		TouchExitYes,
+		TouchExitNo,
+		TouchLevel = 100
+	};
 
 	JellyCore* _core;
 
@@ -62,6 +79,7 @@ private:
 	Shader* _shader;
 	Sprite* _backSprite;
 	Sprite* _levelImage;
+	Sprite* _boxSprite;
 
 	glm::mat4 _projection;
 	glm::mat4 _jellyProjection;
@@ -110,10 +128,38 @@ private:
 	//level objects
 	std::vector<LevelSoftBody*> _gameBodies;
 
-    JellyGame* _jellyGame;
+	JellyGame* _jellyGame;
+	JellyOptions* _jellyOptions;
+
+	//start the selected level again after leaving one
+	bool _launchLevel;
+
+	//exit question
+	bool _confirmExit;
+	bool _confirmYes;
+
+	TouchTargets _touch;
+
+	//selection box of the new menu, moves to the selected cell
+	float _cursorX;
+	float _cursorY;
+	bool _cursorPlaced;
 
 	float _focusPulse;
 	float _focusPhase;
+
+	void SelectLevel(int index);
+	void MoveHorizontal(int step);
+	void MoveVertical(int step);
+	void ChangePage(int step);
+	int LastRowOnPage();
+
+	void ChangeSkin(int step);
+	void UpdateCarSkin();
+
+	void LaunchLevel(GameManager* manager);
+	void OpenOptions(GameManager* manager);
+	void HandleConfirmExit(GameManager* manager, int touched);
 
 public:
 

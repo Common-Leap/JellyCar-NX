@@ -5,6 +5,7 @@ namespace UiLayout
 {
 	constexpr float TitleFontSize = 64.0f;
 	constexpr float MenuFontSize  = 32.0f;
+	constexpr float BodyFontSize  = 24.0f;
 	constexpr float SmallFontSize = 16.0f;
 
 	inline int CenterX(int x, int w) { return x + w / 2; }
@@ -14,6 +15,12 @@ namespace UiLayout
 	inline int BaselineCenter(int boxY, int boxH, float fontSize)
 	{
 		return boxY + boxH / 2 + (int)(fontSize * 0.30f);
+	}
+
+	// Center the capital letters (about 0.72 of the font size) in a box
+	inline int BaselineCapCenter(int boxY, int boxH, float fontSize)
+	{
+		return boxY + boxH / 2 + (int)(fontSize * 0.36f);
 	}
 
 	inline int BaselineRow(int boxY, int boxH, int row, int rowCount, float fontSize)

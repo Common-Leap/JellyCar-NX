@@ -6,8 +6,9 @@
 #include "../Utils/UiLayout.h"
 #include "../Utils/UiPrompt.h"
 
-#include <stdio.h> 
-#include <sstream> 
+#include <algorithm>
+#include <stdio.h>
+#include <sstream>
 
 
 template <typename T>
@@ -16,6 +17,25 @@ std::string to_string(const T& value)
 	std::ostringstream s;
 	s << value;
 	return s.str();
+}
+
+namespace
+{
+	const int TIRE_SLOT = 0;
+	const int BALLON_SLOT = 1;
+
+	const float POWER_UP_TIME = 30.0f;
+	const float POWER_UP_LOW_TIME = 5.0f;
+
+	const int SLOT_SIZE = 64;
+	const int SLOT_GAP = 14;
+	const int SLOT_MARGIN = 24;
+
+	//so that a button held while driving does not pick an entry
+	const float OVERLAY_DELAY = 0.35f;
+
+	//longest time one frame can count for
+	const float MAX_DELTA = 0.1f;
 }
 
 JellyGame::JellyGame(JellyCore* core)
@@ -32,8 +52,6 @@ JellyGame::JellyGame(JellyCore* core)
 	_backSprite = NULL;
 	_tireSprite = NULL;
 	_ballonSprite = NULL;
-	_tireSpriteBack = NULL;
-	_ballonSpriteBack = NULL;
 
 	_transformMeter = NULL;
 
@@ -53,6 +71,12 @@ JellyGame::JellyGame(JellyCore* core)
     _jellyOptions = nullptr;
 
 	initialized = false;
+
+	_overlaySelected = 0;
+	_overlayTime = 0.0f;
+
+	_nextLevelAvailable = false;
+	_result = ResultLevelSelect;
 }
 
 void JellyGame::Init()
@@ -110,9 +134,6 @@ void JellyGame::Init()
 	_ballonSprite = new Sprite("ballonSprite", "Assets/Jelly/Texture/ballon.png", _shader);
 	_ballonSprite->SetScale(glm::vec2(0.04f, 0.04f));	
 
-	_tireSpriteBack = new Sprite("tireBack", "Assets/Jelly/Texture/roundBackRed.png", _shader);
-	_ballonSpriteBack = new Sprite("ballonBack", "Assets/Jelly/Texture/roundBack.png", _shader);
-
 	_transformMeter = new Sprite("transformmeter", "Assets/Jelly/Texture/transform_meter.png", _shader);
 	_transformMeter->SetPosition(glm::vec2(128,40));
 
@@ -147,17 +168,11 @@ void JellyGame::Init()
 	_ballonActive = false;
 	_tireActive = false;
 
-	_ballonPressed = false;
-	_tirePressed = false;
-
 	_ballonTime = 0.0f;
 	_tireTime = 0.0f;
 
-	_ballonAABB.expandToInclude(Vector2(((float)_renderManager->GetWidth() / 2.0f) + 128.0f + 64.0f, 450.0f + 64.0f));
-	_ballonAABB.expandToInclude(Vector2(((float)_renderManager->GetWidth() / 2.0f) + 128.0f - 64.0f, 450.0f - 64.0f));
-
-	_tireAABB.expandToInclude(Vector2(((float)_renderManager->GetWidth() / 2.0f) - 128.0f + 64.0f, 450.0f + 64.0f));
-	_tireAABB.expandToInclude(Vector2(((float)_renderManager->GetWidth() / 2.0f) - 128.0f - 64.0f, 450.0f - 64.0f));
+	_tireAABB = PowerUpTouchArea(TIRE_SLOT);
+	_ballonAABB = PowerUpTouchArea(BALLON_SLOT);
 
 	_gamePlayState = GamePlayState::Play;
 
@@ -283,7 +298,22 @@ bool JellyGame::LoadLevel(LevelManager* levelManager, std::string levelName,std:
 
 	_gamePlayState = GamePlayState::Play;
 
+	UpdateProjection();
+
+	//loading does not count
+	_timer->GetDelta();
+
 	return true;
+}
+
+void JellyGame::SetNextLevelAvailable(bool available)
+{
+	_nextLevelAvailable = available;
+}
+
+GameResult JellyGame::GetResult()
+{
+	return _result;
 }
 
 void JellyGame::SetChassisTextures(Texture* small, Texture* big)
@@ -319,12 +349,12 @@ bool JellyGame::collisionFilter(Body* bodyA, int bodyApm, Body* bodyB, int bodyB
 		if (itemBody->GetName() == "itemstick")
 		{
 			_haveTire = true;
-			_tireTime = 30.0f;
+			_tireTime = POWER_UP_TIME;
 		}
 		else if(itemBody->GetName() == "itemballoon")
 		{
 			_haveBallon = true;
-			_ballonTime = 30.0f;
+			_ballonTime = POWER_UP_TIME;
 		}
 		else if(itemBody->GetName() == "checkpoint")
 		{
@@ -363,8 +393,6 @@ void JellyGame::CleanUp()
 	delete _transformMeter;
     delete _tireSprite;
     delete _ballonSprite;
-    delete _tireSpriteBack;
-    delete _ballonSpriteBack;
 
 	//remove timer
 	delete _timer;
@@ -387,8 +415,8 @@ void JellyGame::Pause()
 
 void JellyGame::Resume()
 {
-    if (_jellyOptions != nullptr)
-        delete _jellyOptions;
+	delete _jellyOptions;
+	_jellyOptions = nullptr;
 
 	_inputHelper->Update();
 }
@@ -403,201 +431,276 @@ void JellyGame::GameResume()
 
 }
 
-void JellyGame::HandleEvents(GameManager* manager)
+void JellyGame::ToggleBallon()
 {
-	if (_gamePlayState == GamePlayState::Play)
+	_ballonActive = !_ballonActive;
+	_car->UseBallon(_ballonActive);
+}
+
+void JellyGame::ToggleTire()
+{
+	_tireActive = !_tireActive;
+	_car->UseNearestGracity(_tireActive);
+}
+
+void JellyGame::ResumePlay()
+{
+	_gamePlayState = GamePlayState::Play;
+
+	if (_fastCar)
 	{
-		if (_inputHelper->MenuActionPressed(MenuAction::MenuPause))
-		{
-			_gamePlayState = GamePlayState::Paused;
-			_audioHelper->StopEngineSound();
-			return;
-		}
-
-		if (_inputHelper->ActionPressed(CarAction::Map))
-		{
-			_showMap = !_showMap;
-		}
-
-		//car torque
-		if (_inputHelper->ActionHold(CarAction::Left))
-		{
-			_car->setTorque(-1);
-		}
-
-		if (_inputHelper->ActionHold(CarAction::Right))
-		{
-			_car->setTorque(1);
-		}
-
-		//chasis torque
-		_car->mChassis->torque = 0.0f;
-
-		if (_inputHelper->ActionHold(CarAction::RotateLeft))
-		{
-			_car->mChassis->torque = -1.0f;
-		}
-
-		if (_inputHelper->ActionHold(CarAction::RotateRight))
-		{
-			_car->mChassis->torque = 1.0f;
-		}
-
-		if (_inputHelper->ActionPressed(CarAction::Transform))
-		{
-			if (mTransformMeter > 0.0f)
-			{
-				if (_car->Transform())
-					mTransformMeterGrowDir = (mTransformMeterGrowDir >= 0) ? -1 : 1;
-			}
-		}
-
-		if (_haveBallon && _inputHelper->ActionPressed(CarAction::Ballon))
-		{
-			_ballonActive = !_ballonActive;
-			_car->UseBallon(_ballonActive);
-		}
-
-		if (_haveTire && _inputHelper->ActionPressed(CarAction::Tire))
-		{
-			_tireActive = !_tireActive;
-			_car->UseNearestGracity(_tireActive);
-		}
-
-		if (_inputHelper->ActionHold(CarAction::Left) || _inputHelper->ActionHold(CarAction::Right))
-		{
-			if (_car->getVelocity().length() > 2.0f && _slowCar)
-			{
-				_audioHelper->PlayFastEngine();
-				_slowCar = false;
-				_fastCar = true;
-			}
-		}
-		else
-		{
-			if (_fastCar)
-			{
-				_audioHelper->PlaySlowEngine();
-				_slowCar = true;
-				_fastCar = false;
-			}
-		}
-
-		//touch support
-		//tire and ballon
-		if (_haveBallon || _haveTire)
-		{
-			if (_inputHelper->GetTouchCount() > 0)
-			{
-				glm::vec2 touch = _inputHelper->TouchToScreen(_screenBounds, _inputHelper->GetTouchPosition(0));
-
-				//check if pressed ballon trigger
-				if (_haveBallon && _ballonAABB.contains(Vector2(touch.x, touch.y)))
-				{
-					if (!_ballonPressed)
-					{
-						//change ballon state
-						_ballonActive = !_ballonActive;
-						
-						//activate or deactivate ballon
-						_car->UseBallon(_ballonActive);
-
-						_ballonPressed = true;
-					}
-				}
-
-				//check if pressed tire trigger
-				if (_haveTire && _tireAABB.contains(Vector2(touch.x, touch.y)))
-				{
-					if (!_tirePressed)
-					{
-						//change ballon state
-						_tireActive = !_tireActive;
-
-						//activate or deactivate ballon
-						_car->UseNearestGracity(_tireActive);
-
-						_tirePressed = true;
-					}
-				}
-			}
-			else
-			{
-				_ballonPressed = false;
-				_tirePressed = false;
-			}
-		}
-
+		_audioHelper->PlayFastEngine();
 	}
-
-	if (_gamePlayState == GamePlayState::Paused)
+	else
 	{
+		_audioHelper->PlaySlowEngine();
+	}
+}
+
+void JellyGame::RespawnAtCheckpoint()
+{
+	Vector2 pos = Vector2(_checkpointPosition.x, _checkpointPosition.y);
+	Vector2 scale = Vector2(1.0f, 1.0f);
+
+	_car->getChassisBody()->setVelocity(Vector2(0, 0));
+	_car->getTire(0)->setVelocity(Vector2(0, 0));
+	_car->getTire(1)->setVelocity(Vector2(0, 0));
+
+	_car->getChassisBody()->setPositionAngle(pos, 0.0f, scale);
+	_car->getTire(0)->setPositionAngle(Vector2(_checkpointPosition.x + 1.5f, _checkpointPosition.y - 0.3f), 0.0f, scale);
+	_car->getTire(1)->setPositionAngle(Vector2(_checkpointPosition.x - 1.3f, _checkpointPosition.y - 0.3f), 0.0f, scale);
+}
+
+void JellyGame::LeaveLevel(GameManager* manager, GameResult result)
+{
+	_result = result;
+
+	_audioHelper->StopEngineSound();
+	_levelManager->ClearLevel(mWorld);
+	manager->PopState();
+}
+
+void JellyGame::OpenOverlay(GamePlayState state)
+{
+	_gamePlayState = state;
+	_audioHelper->StopEngineSound();
+
+	_overlayItems.clear();
+	_overlaySelected = 0;
+	_overlayTime = 0.0f;
+
+	if (state == GamePlayState::Paused)
+	{
+		_overlayItems.push_back(OverlayResume);
+
 		if (_checkpoint)
 		{
-			if (_inputHelper->ActionPressed(CarAction::Tire))
-			{
-				Vector2 pos = Vector2(_checkpointPosition.x, _checkpointPosition.y);
-				Vector2 scale = Vector2(1.0f, 1.0f);
-
-				_car->getChassisBody()->setVelocity(Vector2(0, 0));
-				_car->getTire(0)->setVelocity(Vector2(0, 0));
-				_car->getTire(1)->setVelocity(Vector2(0, 0));
-
-				_car->getChassisBody()->setPositionAngle(pos, 0.0f, scale);
-				_car->getTire(0)->setPositionAngle(Vector2(_checkpointPosition.x + 1.5f, _checkpointPosition.y - 0.3f), 0.0f, scale);
-				_car->getTire(1)->setPositionAngle(Vector2(_checkpointPosition.x - 1.3f, _checkpointPosition.y - 0.3f), 0.0f, scale);
-
-
-				_gamePlayState = GamePlayState::Play;
-
-				if (_fastCar)
-				{
-					_audioHelper->PlayFastEngine();
-				}
-				else
-				{
-					_audioHelper->PlaySlowEngine();
-				}
-			}
+			_overlayItems.push_back(OverlayCheckpoint);
 		}
-
-		if (_inputHelper->MenuActionPressed(MenuAction::MenuBack))
-		{
-			_gamePlayState = GamePlayState::Play;
-
-			if (_fastCar)
-			{
-				_audioHelper->PlayFastEngine();
-			}
-			else
-			{
-				_audioHelper->PlaySlowEngine();
-			}
-		}
-
-		if (_inputHelper->MenuActionPressed(MenuAction::MenuPause))
-		{
-            _jellyOptions = new JellyOptions(_core);
-
-			manager->PushState(_jellyOptions);
-			return;
-		}
-
-		if (_inputHelper->MenuActionPressed(MenuAction::MenuExit))
-		{
-			_levelManager->ClearLevel(mWorld);
-			manager->PopState();
-			return;
-		}				
 	}
 
-	if (_gamePlayState != GamePlayState::Play && _gamePlayState != GamePlayState::Paused)
+	if (state == GamePlayState::Finish && _nextLevelAvailable)
 	{
-		if (_inputHelper->MenuActionPressed(MenuAction::MenuBack))
+		_overlayItems.push_back(OverlayNextLevel);
+	}
+
+	_overlayItems.push_back(OverlayRetry);
+
+	if (state == GamePlayState::Paused)
+	{
+		_overlayItems.push_back(OverlayOptions);
+	}
+
+	_overlayItems.push_back(OverlayLevelSelect);
+}
+
+std::string JellyGame::OverlayLabel(OverlayItem item)
+{
+	switch (item)
+	{
+	case OverlayResume:     return "Resume";
+	case OverlayCheckpoint: return "Go to checkpoint";
+	case OverlayNextLevel:  return "Next level";
+	case OverlayRetry:      return "Retry";
+	case OverlayOptions:    return "Options";
+	default:                return "Level select";
+	}
+}
+
+std::string JellyGame::OverlayTitle()
+{
+	switch (_gamePlayState)
+	{
+	case GamePlayState::Finish:      return "Level finished";
+	case GamePlayState::CarBroken:   return "Car broken";
+	case GamePlayState::OutOfBounds: return "Out of level";
+	default:                         return "Pause";
+	}
+}
+
+void JellyGame::SelectOverlayItem(GameManager* manager, OverlayItem item)
+{
+	switch (item)
+	{
+	case OverlayResume:
+		ResumePlay();
+		break;
+	case OverlayCheckpoint:
+		RespawnAtCheckpoint();
+		ResumePlay();
+		break;
+	case OverlayNextLevel:
+		LeaveLevel(manager, ResultNextLevel);
+		break;
+	case OverlayRetry:
+		LeaveLevel(manager, ResultRetry);
+		break;
+	case OverlayOptions:
+		_jellyOptions = new JellyOptions(_core);
+		manager->PushState(_jellyOptions);
+		break;
+	case OverlayLevelSelect:
+		LeaveLevel(manager, ResultLevelSelect);
+		break;
+	}
+}
+
+void JellyGame::HandleOverlay(GameManager* manager)
+{
+	bool paused = _gamePlayState == GamePlayState::Paused;
+
+	if (!paused && _overlayTime < OVERLAY_DELAY)
+	{
+		return;
+	}
+
+	int count = (int)_overlayItems.size();
+
+	if (_inputHelper->MenuActionPressed(MenuAction::MenuUp))
+	{
+		_overlaySelected = (_overlaySelected + count - 1) % count;
+	}
+
+	if (_inputHelper->MenuActionPressed(MenuAction::MenuDown))
+	{
+		_overlaySelected = (_overlaySelected + 1) % count;
+	}
+
+	glm::vec2 point;
+	if (_inputHelper->TouchPressed(point))
+	{
+		int touched = _touch.Find(point);
+		if (touched != TouchTargets::None && touched < count)
 		{
-			_levelManager->ClearLevel(mWorld);
-			manager->PopState();
+			SelectOverlayItem(manager, _overlayItems[touched]);
 			return;
+		}
+	}
+
+	if (_inputHelper->MenuActionPressed(MenuAction::MenuAccept))
+	{
+		SelectOverlayItem(manager, _overlayItems[_overlaySelected]);
+		return;
+	}
+
+	if (_inputHelper->MenuActionPressed(MenuAction::MenuRetry))
+	{
+		SelectOverlayItem(manager, OverlayRetry);
+		return;
+	}
+
+	if (paused)
+	{
+		if (_inputHelper->MenuActionPressed(MenuAction::MenuBack)
+			|| _inputHelper->MenuActionPressed(MenuAction::MenuPause)
+			|| _inputHelper->MenuActionPressed(MenuAction::MenuExit))
+		{
+			SelectOverlayItem(manager, OverlayResume);
+		}
+	}
+	else if (_inputHelper->MenuActionPressed(MenuAction::MenuBack))
+	{
+		SelectOverlayItem(manager, OverlayLevelSelect);
+	}
+}
+
+void JellyGame::HandleEvents(GameManager* manager)
+{
+	if (_gamePlayState != GamePlayState::Play)
+	{
+		//may leave the level, which deletes this object
+		HandleOverlay(manager);
+		InputHelper::Instance()->Update();
+		return;
+	}
+
+	if (_inputHelper->MenuActionPressed(MenuAction::MenuPause) || _inputHelper->MenuActionPressed(MenuAction::MenuExit))
+	{
+		OpenOverlay(GamePlayState::Paused);
+		_inputHelper->Update();
+		return;
+	}
+
+	if (_inputHelper->ActionPressed(CarAction::Map))
+	{
+		_showMap = !_showMap;
+	}
+
+	//wheels and chassis
+	float drive = _inputHelper->DriveAxis();
+
+	_car->setTorque(drive);
+	_car->mChassis->torque = _inputHelper->RotateAxis();
+
+	if (_inputHelper->ActionPressed(CarAction::Transform))
+	{
+		if (mTransformMeter > 0.0f)
+		{
+			if (_car->Transform())
+				mTransformMeterGrowDir = (mTransformMeterGrowDir >= 0) ? -1 : 1;
+		}
+	}
+
+	if (_haveBallon && _inputHelper->ActionPressed(CarAction::Ballon))
+	{
+		ToggleBallon();
+	}
+
+	if (_haveTire && _inputHelper->ActionPressed(CarAction::Tire))
+	{
+		ToggleTire();
+	}
+
+	if (drive != 0.0f)
+	{
+		if (_car->getVelocity().length() > 2.0f && _slowCar)
+		{
+			_audioHelper->PlayFastEngine();
+			_slowCar = false;
+			_fastCar = true;
+		}
+	}
+	else if (_fastCar)
+	{
+		_audioHelper->PlaySlowEngine();
+		_slowCar = true;
+		_fastCar = false;
+	}
+
+	//tire and ballon can be touched
+	glm::vec2 point;
+	if (!_showMap && _inputHelper->TouchPressed(point))
+	{
+		glm::vec2 touch = _inputHelper->TouchToScreen(_screenBounds, point);
+
+		if (_haveBallon && _ballonAABB.contains(Vector2(touch.x, touch.y)))
+		{
+			ToggleBallon();
+		}
+
+		if (_haveTire && _tireAABB.contains(Vector2(touch.x, touch.y)))
+		{
+			ToggleTire();
 		}
 	}
 
@@ -633,14 +736,53 @@ void JellyGame::UpdateTransformMeter(float dt)
 	}
 }
 
+void JellyGame::UpdateProjection()
+{
+	//screen ratio 0.56
+	if (_showMap)
+	{
+		_jellyProjection = glm::ortho(_mapLimits.Min.X, _mapLimits.Max.X, _mapLimits.Min.Y, _mapLimits.Max.Y, -1.0f, 1.0f);
+	}
+	else
+	{
+		_jellyProjection = glm::ortho(-20.0f + _car->getPosition().X, _car->getPosition().X + 20.0f, -11.2f + _car->getPosition().Y, _car->getPosition().Y + 11.2f, -1.0f, 1.0f);
+	}
+}
+
+void JellyGame::FinishLevel()
+{
+	if (_time < _menuLevelManager->GetTime(_levelName))
+	{
+		_newTimeRecord = true;
+		_menuLevelManager->SetTime(_levelName, _time);
+	}
+
+	if (_bestJumpLenght > _menuLevelManager->GetJump(_levelName))
+	{
+		_newJumpRecord = true;
+		_menuLevelManager->SetJump(_levelName, _bestJumpLenght);
+	}
+
+	if (_newTimeRecord || _newJumpRecord)
+	{
+		_menuLevelManager->SaveScores("JellyScore.xml");
+	}
+
+	OpenOverlay(GamePlayState::Finish);
+}
+
 void JellyGame::Update(GameManager* manager)
 {
+	//read every frame, so that the time spent paused does not count
+	_dt = std::min(_timer->GetDelta(), MAX_DELTA);
+
+	if (_gamePlayState != GamePlayState::Play)
+	{
+		_overlayTime += _dt;
+	}
+
 	if (_gamePlayState == GamePlayState::Play)
 	{
-		if (!_inputHelper->ActionHold(CarAction::Left) && !_inputHelper->ActionHold(CarAction::Right))
-			_car->setTorque(0);
-
-		_dt = _timer->GetDelta();
 		_time += _dt;
 		_hitTime += _dt;
 
@@ -689,73 +831,21 @@ void JellyGame::Update(GameManager* manager)
 			}
 		}
 
-		//update camera*
-		//screen ratio 0.56
-		if (_showMap)
-		{
-			_jellyProjection = glm::ortho(_mapLimits.Min.X, _mapLimits.Max.X, _mapLimits.Min.Y, _mapLimits.Max.Y, -1.0f, 1.0f);
-		}
-		else
-		{
-			_jellyProjection = glm::ortho(-20.0f + _car->getPosition().X, _car->getPosition().X + 20.0f, -11.2f + _car->getPosition().Y, _car->getPosition().Y + 11.2f, -1.0f, 1.0f);
-		}
+		//update camera
+		UpdateProjection();
 
 		//check level ending
-		if (_car->getChassisBody()->getAABB().contains(_levelTarget))
-		{
-			if (_car->getChassisBody()->contains(_levelTarget))
-			{
-				_gamePlayState = GamePlayState::Finish;
-				_audioHelper->StopEngineSound();
-
-				if (_time < _menuLevelManager->GetTime(_levelName))
-				{
-					_newTimeRecord = true;
-
-					_menuLevelManager->SetTime(_levelName, _time);
-					_menuLevelManager->SaveScores("JellyScore.xml");
-				}
-
-				if (_bestJumpLenght > _menuLevelManager->GetJump(_levelName))
-				{
-					_newJumpRecord = true;
-
-					_menuLevelManager->SetJump(_levelName, _bestJumpLenght);
-					_menuLevelManager->SaveScores("JellyScore.xml");
-				}
-
-				return;
-			}
-		}
+		bool finished = _car->getChassisBody()->getAABB().contains(_levelTarget) && _car->getChassisBody()->contains(_levelTarget);
 
 		for (int i = 0; i < 2; i++)
 		{
-			if (_car->getTire(i)->getAABB().contains(_levelTarget))
-			{
-				if (_car->getTire(i)->contains(_levelTarget))
-				{
-					_gamePlayState = GamePlayState::Finish;
-					_audioHelper->StopEngineSound();
+			finished = finished || (_car->getTire(i)->getAABB().contains(_levelTarget) && _car->getTire(i)->contains(_levelTarget));
+		}
 
-					if (_time < _menuLevelManager->GetTime(_levelName))
-					{
-						_newTimeRecord = true;
-
-						_menuLevelManager->SetTime(_levelName, _time);
-						_menuLevelManager->SaveScores("JellyScore.xml");
-					}
-
-					if (_bestJumpLenght > _menuLevelManager->GetJump(_levelName))
-					{
-						_newJumpRecord = true;
-
-						_menuLevelManager->SetJump(_levelName, _bestJumpLenght);
-						_menuLevelManager->SaveScores("JellyScore.xml");
-					}
-
-					return;
-				}
-			}
+		if (finished)
+		{
+			FinishLevel();
+			return;
 		}
 
 		//check out of bounds
@@ -763,21 +853,11 @@ void JellyGame::Update(GameManager* manager)
 		{
 			if (_checkpoint)
 			{
-				Vector2 pos = Vector2(_checkpointPosition.x, _checkpointPosition.y);
-				Vector2 scale = Vector2(1.0f, 1.0f);
-
-				_car->getChassisBody()->setVelocity(Vector2(0, 0));
-				_car->getTire(0)->setVelocity(Vector2(0, 0));
-				_car->getTire(1)->setVelocity(Vector2(0, 0));
-
-				_car->getChassisBody()->setPositionAngle(pos, 0.0f, scale);
-				_car->getTire(0)->setPositionAngle(Vector2(_checkpointPosition.x + 1.5f,_checkpointPosition.y - 0.3f), 0.0f, scale);
-				_car->getTire(1)->setPositionAngle(Vector2(_checkpointPosition.x - 1.3f, _checkpointPosition.y - 0.3f), 0.0f, scale);
+				RespawnAtCheckpoint();
 			}
 			else
 			{
-				_gamePlayState = GamePlayState::OutOfBounds;
-				_audioHelper->StopEngineSound();
+				OpenOverlay(GamePlayState::OutOfBounds);
 				return;
 			}
 		}
@@ -787,8 +867,7 @@ void JellyGame::Update(GameManager* manager)
 		Vector2 chassisSize = chassisAABB.Max - chassisAABB.Min;
 		if ((fabsf(chassisSize.X) > 17.0f) || (fabsf(chassisSize.Y) > 17.0f))
 		{
-			_gamePlayState = GamePlayState::CarBroken;
-			_audioHelper->StopEngineSound();
+			OpenOverlay(GamePlayState::CarBroken);
 			return;
 		}
 
@@ -798,8 +877,7 @@ void JellyGame::Update(GameManager* manager)
 			carBreakCount++;
 			if (carBreakCount > 5)
 			{
-				_gamePlayState = GamePlayState::CarBroken;
-				_audioHelper->StopEngineSound();
+				OpenOverlay(GamePlayState::CarBroken);
 				return;
 			}
 		}
@@ -840,6 +918,89 @@ void JellyGame::Update(GameManager* manager)
 		}
 
 	}	
+}
+
+void JellyGame::PowerUpSlot(int slot, int& x, int& y)
+{
+	x = SLOT_MARGIN + slot * (SLOT_SIZE + SLOT_GAP);
+	y = _renderManager->GetHeight() - SLOT_MARGIN - SLOT_SIZE;
+}
+
+AABB JellyGame::PowerUpTouchArea(int slot)
+{
+	int x, y;
+	PowerUpSlot(slot, x, y);
+
+	//a little bigger than the slot, without reaching its neighbour
+	const int pad = SLOT_GAP / 2;
+
+	AABB area;
+	area.expandToInclude(Vector2((float)(x - pad), (float)(y - pad)));
+	area.expandToInclude(Vector2((float)(x + SLOT_SIZE + pad), (float)(y + SLOT_SIZE + pad)));
+	return area;
+}
+
+void JellyGame::DrawPowerUp(int slot, Sprite* icon, CarAction action, float timeLeft, bool active)
+{
+	RectangleDrawer* ui = RectangleDrawer::Instance();
+
+	int x, y;
+	PowerUpSlot(slot, x, y);
+
+	bool low = timeLeft <= POWER_UP_LOW_TIME;
+	float pulse = 0.5f + 0.5f * sinf(_time * (low ? 14.0f : 6.0f));
+
+	//in use: glowing green frame, red when about to run out
+	if (active)
+	{
+		glm::vec4 frame = low ? UiTheme::PowerUpLow() : UiTheme::PowerUpActive();
+		glm::vec4 glow = frame;
+		glow.a = 0.20f + pulse * 0.35f;
+
+		ui->DrawRoundedRect(x - 5, y - 5, SLOT_SIZE + 10, SLOT_SIZE + 10, UiTheme::CellRadius() + 5.0f,
+			glow, glm::vec4(0, 0, 0, 0), 0.0f, _projection);
+		ui->DrawRoundedRect(x, y, SLOT_SIZE, SLOT_SIZE, UiTheme::CellRadius(),
+			UiTheme::PowerUpFillActive(), frame, 2.5f, _projection);
+	}
+	else
+	{
+		ui->DrawRoundedRect(x, y, SLOT_SIZE, SLOT_SIZE, UiTheme::CellRadius(),
+			UiTheme::CellFill(), UiTheme::CellBorder(), 1.0f, _projection);
+	}
+
+	//icon, faded while not in use
+	const int barH = 6;
+	const int barPad = 9;
+	icon->SetScale(glm::vec2(0.31f, 0.31f));
+	icon->SetSolor(glm::vec4(1.0f, 1.0f, 1.0f, active ? 1.0f : 0.55f));
+	icon->SetPosition(glm::vec2(x + SLOT_SIZE / 2, y + (SLOT_SIZE - barH - barPad) / 2 + 2));
+	icon->Draw(_projection);
+
+	//the same sprite marks the item in the level
+	icon->SetSolor(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
+
+	//time left
+	ui->DrawProgressBar(x + barPad, y + SLOT_SIZE - barPad - barH + 2, SLOT_SIZE - barPad * 2, barH, barH / 2.0f,
+		timeLeft / POWER_UP_TIME, low, _projection);
+
+	//text is drawn over the pause and finish panels, so only add it during play
+	if (_gamePlayState == GamePlayState::Play)
+	{
+		UiPrompt::DrawButton(ui, _core->_badgeFont, _projection, x + SLOT_SIZE / 2, y - 24,
+			_inputHelper->CarActionButton(action), 28);
+	}
+}
+
+void JellyGame::DrawPowerUps()
+{
+	if (_showMap)
+		return;
+
+	if (_haveTire && _tireTime > 0.0f)
+		DrawPowerUp(TIRE_SLOT, _tireSprite, CarAction::Tire, _tireTime, _tireActive);
+
+	if (_haveBallon && _ballonTime > 0.0f)
+		DrawPowerUp(BALLON_SLOT, _ballonSprite, CarAction::Ballon, _ballonTime, _ballonActive);
 }
 
 void JellyGame::Draw(GameManager* manager)
@@ -970,214 +1131,10 @@ void JellyGame::Draw(GameManager* manager)
 		}		
 	}
 
-	if (!_showMap && _haveBallon && _ballonTime > 0.0f)
-	{
-		float step = 100.0f / 30.0f;
-		float scale = (_ballonTime * step) / 100.0f;
-
-		_ballonSpriteBack->SetScale(glm::vec2(scale, scale));
-		_ballonSpriteBack->SetSolor(glm::vec4(1.0f, 1.0f, 1.0f, 0.5f));
-		_ballonSpriteBack->SetPosition(glm::vec2((_renderManager->GetWidth() / 2) + 128, 450));
-		_ballonSpriteBack->Draw(_projection);
-
-		_ballonSprite->SetScale(glm::vec2(scale, scale));
-		//_ballonSprite->SetSolor(glm::vec4(1.0f, 1.0f, 1.0f, 0.5f));
-		_ballonSprite->SetPosition(glm::vec2((_renderManager->GetWidth() / 2) + 128,450));
-		_ballonSprite->Draw(_projection);
-	}
-
-	if (!_showMap && _haveTire && _tireTime > 0.0f)
-	{
-		float step = 100.0f / 30.0f;
-		float scale = (_tireTime * step) / 100.0f;
-
-		_tireSpriteBack->SetScale(glm::vec2(scale, scale));
-		_tireSpriteBack->SetSolor(glm::vec4(1.0f, 1.0f, 1.0f, 0.5f));
-		_tireSpriteBack->SetPosition(glm::vec2((_renderManager->GetWidth() / 2) - 128, 450));
-		_tireSpriteBack->Draw(_projection);
-
-		_tireSprite->SetScale(glm::vec2(scale, scale));
-		//_tireSprite->SetSolor(glm::vec4(1.0f, 1.0f, 1.0f, 0.5f));
-		_tireSprite->SetPosition(glm::vec2((_renderManager->GetWidth() / 2) - 128, 450));
-		_tireSprite->Draw(_projection);
-	}
-
 	//end level target
 	_targetSprite->Draw(_jellyProjection);
 
-	if (_gamePlayState == GamePlayState::Paused)
-	{
-		int screenW = _renderManager->GetWidth();
-		int screenH = _renderManager->GetHeight();
-		RectangleDrawer* ui = RectangleDrawer::Instance();
-
-		ui->DrawDimOverlay(screenW, screenH, 0.30f, _projection);
-
-		int panelW = 420;
-		int panelH = _checkpoint ? 220 : 180;
-		int panelX = (screenW - panelW) / 2;
-		int panelY = (screenH - panelH) / 2 - 20;
-		int panelCx = UiLayout::CenterX(panelX, panelW);
-		int contentY = panelY + 20;
-		int contentH = panelH - 36;
-		int totalRows = _checkpoint ? 5 : 4;
-
-		ui->DrawPanel(panelX, panelY, panelW, panelH, UiTheme::PanelRadius(), _projection);
-
-		_menuFont->AddText("Pause", panelCx,
-			UiLayout::BaselineRow(contentY, contentH, 0, totalRows, UiLayout::MenuFontSize),
-			UiTheme::TextHighlight(), FontCenter);
-
-		int row = 1;
-		int rowH = contentH / totalRows;
-		int rowY = contentY + row * rowH;
-		int rowPad = 24;
-
-		UiPrompt::DrawPromptInRow(ui, _core->_smallFont, _menuFont, _projection,
-			panelX + rowPad, panelW - rowPad * 2, rowY, rowH,
-			_inputHelper->MenuActionLabel(MenuAction::MenuBack).c_str(), "Resume");
-
-		if (_checkpoint)
-		{
-			row++;
-			rowY = contentY + row * rowH;
-			UiPrompt::DrawPromptInRow(ui, _core->_smallFont, _menuFont, _projection,
-				panelX + rowPad, panelW - rowPad * 2, rowY, rowH,
-				_inputHelper->CarActionLabel(CarAction::Tire).c_str(), "Go to checkpoint");
-		}
-
-		row++;
-		rowY = contentY + row * rowH;
-		UiPrompt::DrawPromptInRow(ui, _core->_smallFont, _menuFont, _projection,
-			panelX + rowPad, panelW - rowPad * 2, rowY, rowH,
-			_inputHelper->MenuActionLabel(MenuAction::MenuPause).c_str(), "Options");
-
-		row++;
-		rowY = contentY + row * rowH;
-		UiPrompt::DrawPromptInRow(ui, _core->_smallFont, _menuFont, _projection,
-			panelX + rowPad, panelW - rowPad * 2, rowY, rowH,
-			_inputHelper->MenuActionLabel(MenuAction::MenuExit).c_str(), "Main menu");
-	}
-
-
-
-	if (_gamePlayState == GamePlayState::Finish)
-	{
-		int screenW = _renderManager->GetWidth();
-		int screenH = _renderManager->GetHeight();
-		RectangleDrawer* ui = RectangleDrawer::Instance();
-		ui->DrawDimOverlay(screenW, screenH, 0.22f, _projection);
-
-		int rowCount = 2;
-		if (_newJumpRecord && _newTimeRecord)
-			rowCount = 4;
-		else if (_newJumpRecord || _newTimeRecord)
-			rowCount = 3;
-
-		const int rowH = 48;
-		const int padV = 28;
-		const int padH = 24;
-		int pW = 440;
-		int pH = padV * 2 + rowCount * rowH;
-		int pX = (screenW - pW) / 2;
-		int pY = (screenH - pH) / 2;
-		int pCx = UiLayout::CenterX(pX, pW);
-		int bodyY = pY + padV;
-		int bodyH = rowCount * rowH;
-
-		ui->DrawPanel(pX, pY, pW, pH, UiTheme::PanelRadius(), _projection);
-
-		int row = 0;
-		_menuFont->AddText("Level finished", pCx,
-			UiLayout::BaselineRow(bodyY, bodyH, row++, rowCount, UiLayout::MenuFontSize),
-			UiTheme::TextAccent(), FontCenter);
-
-		if (_newJumpRecord && _newTimeRecord)
-		{
-			_menuFont->AddText("New Jump Record!", pCx,
-				UiLayout::BaselineRow(bodyY, bodyH, row++, rowCount, UiLayout::MenuFontSize),
-				UiTheme::TextHighlight(), FontCenter);
-			_menuFont->AddText("New Time Record!", pCx,
-				UiLayout::BaselineRow(bodyY, bodyH, row++, rowCount, UiLayout::MenuFontSize),
-				UiTheme::TextSuccess(), FontCenter);
-		}
-		else if (_newJumpRecord)
-		{
-			_menuFont->AddText("New Jump Record!", pCx,
-				UiLayout::BaselineRow(bodyY, bodyH, row++, rowCount, UiLayout::MenuFontSize),
-				UiTheme::TextHighlight(), FontCenter);
-		}
-		else if (_newTimeRecord)
-		{
-			_menuFont->AddText("New Time Record!", pCx,
-				UiLayout::BaselineRow(bodyY, bodyH, row++, rowCount, UiLayout::MenuFontSize),
-				UiTheme::TextSuccess(), FontCenter);
-		}
-
-		UiPrompt::DrawPromptInRow(ui, _core->_smallFont, _menuFont, _projection,
-			pX + padH, pW - padH * 2, bodyY + row * rowH, rowH,
-			_inputHelper->MenuActionLabel(MenuAction::MenuBack).c_str(), "Main menu");
-	}
-	else if (_gamePlayState == GamePlayState::CarBroken)
-	{
-		int screenW = _renderManager->GetWidth();
-		int screenH = _renderManager->GetHeight();
-		RectangleDrawer* ui = RectangleDrawer::Instance();
-
-		const int rowCount = 2;
-		const int rowH = 48;
-		const int padV = 24;
-		const int padH = 24;
-		int pW = 360;
-		int pH = padV * 2 + rowCount * rowH;
-		int pX = (screenW - pW) / 2;
-		int pY = (screenH - pH) / 2;
-		int bodyY = pY + padV;
-		int bodyH = rowCount * rowH;
-
-		ui->DrawDimOverlay(screenW, screenH, 0.22f, _projection);
-		ui->DrawPanel(pX, pY, pW, pH, UiTheme::PanelRadius(), _projection);
-
-		_menuFont->AddText("Car broken", UiLayout::CenterX(pX, pW),
-			UiLayout::BaselineRow(bodyY, bodyH, 0, rowCount, UiLayout::MenuFontSize),
-			UiTheme::TextAccent(), FontCenter);
-
-		UiPrompt::DrawPromptInRow(ui, _core->_smallFont, _menuFont, _projection,
-			pX + padH, pW - padH * 2, bodyY + rowH, rowH,
-			_inputHelper->MenuActionLabel(MenuAction::MenuBack).c_str(), "Main menu");
-	}
-	else if (_gamePlayState == GamePlayState::OutOfBounds)
-	{
-		int screenW = _renderManager->GetWidth();
-		int screenH = _renderManager->GetHeight();
-		RectangleDrawer* ui = RectangleDrawer::Instance();
-
-		const int rowCount = 2;
-		const int rowH = 48;
-		const int padV = 24;
-		const int padH = 24;
-		int pW = 360;
-		int pH = padV * 2 + rowCount * rowH;
-		int pX = (screenW - pW) / 2;
-		int pY = (screenH - pH) / 2;
-		int bodyY = pY + padV;
-		int bodyH = rowCount * rowH;
-
-		ui->DrawDimOverlay(screenW, screenH, 0.22f, _projection);
-		ui->DrawPanel(pX, pY, pW, pH, UiTheme::PanelRadius(), _projection);
-
-		_menuFont->AddText("Out of level", UiLayout::CenterX(pX, pW),
-			UiLayout::BaselineRow(bodyY, bodyH, 0, rowCount, UiLayout::MenuFontSize),
-			UiTheme::TextAccent(), FontCenter);
-
-		UiPrompt::DrawPromptInRow(ui, _core->_smallFont, _menuFont, _projection,
-			pX + padH, pW - padH * 2, bodyY + rowH, rowH,
-			_inputHelper->MenuActionLabel(MenuAction::MenuBack).c_str(), "Main menu");
-	}
-
-	//draw main text
-	_menuFont->Draw(_projection);
-	_core->_smallFont->Draw(_projection);
+	DrawPowerUps();
 
 	//_transformMeter
 	if (mTransformMeter >= 0.0f)
@@ -1186,6 +1143,16 @@ void JellyGame::Draw(GameManager* manager)
 		_transformMeter->SetPosition(glm::vec2(128 - (test * 64.0f),40.0f));
 		_transformMeter->SetSize(glm::vec2(128 * mTransformMeter, 32));
 		_transformMeter->Draw(_projection);
+	}
+
+	//the overlay text goes over the HUD
+	_core->DrawText(_projection);
+
+	_touch.Clear();
+	if (_gamePlayState != GamePlayState::Play)
+	{
+		DrawOverlay();
+		_core->DrawText(_projection);
 	}
 
 	//end render to texture

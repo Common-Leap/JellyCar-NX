@@ -1,22 +1,14 @@
-#include <Andromeda/Graphics/RenderManager.h>
-#include <Andromeda/Utils/Logger.h>
-
 #include "JellyGameManager.h"
 #include "Game/JellySplash.h"
+#include "Mods/ModLoader.h"
+
+#include <sys/stat.h>
 
 void JellyGameManager::Configure()
 {
-	//set pc resolution
-	#ifdef ANDROMEDA_GL3
-	{
-		//Andromeda::Graphics::RenderManager::Instance()->SetWindowSize(1920, 1080);
-		Andromeda::Graphics::RenderManager::Instance()->SetWindowSize(1280, 720);
-		//Andromeda::Graphics::RenderManager::Instance()->SetWindowSize(960, 544);
-
-		//Andromeda::Graphics::RenderManager::Instance()->SetWindowSize(-1, -1);
-		//Andromeda::Graphics::RenderManager::Instance()->SetFullScreen(true);
-	}
-	#endif	
+	//scan the JellyMods folder before anything loads levels, skins or songs
+	mkdir("sdmc:/switch/JellyCar/JellyMods", 0777);
+	ModLoader::Instance()->Init("sdmc:/switch/JellyCar/JellyMods");
 }
 
 void JellyGameManager::Init()

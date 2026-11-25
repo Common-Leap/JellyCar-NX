@@ -20,6 +20,7 @@
 #include "../Levels/LevelSoftBody.h"
 
 #include "../Utils/InputHelper.h"
+#include "../Utils/TouchTargets.h"
 #include "../Utils/AudioHelper.h"
 #include "JellyCore.h"
 
@@ -59,6 +60,25 @@ public:
 	};
 
 private:
+
+	struct MenuItem
+	{
+		JellyOptionsState State;
+		std::string Label;
+		std::string BodyName;
+		Texture* Image;
+		LevelSoftBody* Body;
+	};
+
+	//what a touch can hit, the numbers of list entries are added to the last three
+	enum TouchId
+	{
+		TouchBack = 0,
+		TouchReset = 1,
+		TouchItem = 100,
+		TouchBinding = 200,
+		TouchVolume = 300
+	};
 
 	JellyCore* _core;
 
@@ -104,9 +124,14 @@ private:
 	std::vector<LevelSoftBody*> _gameBodies;
 
 
-	//menu bodies
-	std::vector<LevelSoftBody*> _menuBodies;
-	int _menuBodySelected;
+	//menu
+	std::vector<MenuItem> _menuItems;
+	int _menuSelected;
+
+	//the old menu shows the items as jelly bodies, the new one as a list next to the open page
+	bool _showBodies;
+
+	TouchTargets _touch;
 
 	//dragging
 	float dragX, dragY;
@@ -118,15 +143,16 @@ private:
 	JellyOptionsState _optionsState;
 
 	std::vector<Text> _credits;
-	float _creditsPosition = 600.0f;
-
 	std::vector<Text> _libs;
-	float _libsPosition = 600.0f;
+
+	//credits and libs scroll between these two
+	float _scrollPosition = 600.0f;
+	float _scrollTop;
+	float _scrollBottom;
 
 	//
 	Texture* _creditsTexture;
 	Texture* _libsTexture;
-	Texture* _keyboardTexture;
 	Texture* _gamepadTexture;
 	Texture* _secretTexture;
 	Texture* _volumeTexture;
@@ -145,6 +171,8 @@ private:
 	Sprite* _barSprite;
 	Sprite* _barBlueSprite;
 
+	Sprite* _iconSprite;
+
 	int _soundPosition = 0;
 	float _alphaScale = 1.0f;
 	float _scaleFactor = 0.01f;
@@ -153,6 +181,10 @@ private:
 	int _optionsSoundLevel;
 	int _optionsMusicLevel;
 
+	//volume bars, for touch
+	int _volumeBarX = 0;
+	int _volumeBarW = 0;
+
 	//
 	std::vector<CarAction> _carActions;
 	std::map<CarAction, std::string> _actionTranslation;
@@ -160,6 +192,31 @@ private:
 	void InitCredits();
 	void InitLibs();
 	void InitActionNames();
+
+	//layout of the menu, implemented in Menus/New and Menus/Old
+	void ArrangeMenu();
+
+	//the page to show, the new menu shows the one of the selected item
+	JellyOptionsState CurrentPage();
+	std::vector<Text>& ScrollText();
+
+	void AddMenuItem(JellyOptionsState state, std::string label, std::string bodyName, Texture* image);
+	void SelectItem(int item);
+	void OpenPage(JellyOptionsState state);
+	void ResetScroll();
+
+	int& VolumeLevel(int position);
+	void SetVolumeLevel(int position, int level);
+	void SelectVolume(int position);
+
+	void StartBinding(int position);
+	void MoveBinding(int column, int row);
+
+	bool HandleBodyTouch();
+	void HandleMenu(GameManager* manager, int touched);
+	void HandleControls(int touched);
+	void HandleSound(int touched);
+	void HandleText(int touched);
 
 public:
 

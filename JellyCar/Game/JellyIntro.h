@@ -11,7 +11,6 @@
 #include <Andromeda/Graphics/VertexTypes.h>
 #include <Andromeda/Graphics/TextureManager.h>
 #include <Andromeda/Graphics/Sprite.h>
-#include <Andromeda/Input/KeyboardDevice.h>
 #include <Andromeda/Input/InputManager.h>
 
 #include <Andromeda/Graphics/Text/TextureAtlas.h>
@@ -68,6 +67,7 @@ private:
 	float _dt;
 
 	bool _end;
+	bool _skip;
 
 	//input
 	InputHelper* _inputHelper;

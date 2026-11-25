@@ -12,6 +12,8 @@ JellyCore::JellyCore()
 	_menuAtlas = 0;
 	_menuFont = 0;
 	_smallFont = 0;
+	_bodyFont = 0;
+	_badgeFont = 0;
 	_titleFont = 0;
 	_spriteShader = 0;
 }
@@ -19,6 +21,8 @@ JellyCore::JellyCore()
 JellyCore::~JellyCore()
 {
 	delete _smallFont;
+	delete _bodyFont;
+	delete _badgeFont;
 	delete _menuFont;
 	delete _titleFont;
 
@@ -44,9 +48,9 @@ void JellyCore::Init()
 	Andromeda::Utils::Logger::Instance()->Log("JellyCore::Init: atlas created\n");
 
 	//load fonts (fallback to Vera when JellyFont fails to initialize on some builds)
-	auto buildFont = [this](float size, const char* label) -> TexturedFont*
+	auto buildFont = [this](float size, const char* label, const char* file) -> TexturedFont*
 	{
-		TexturedFont* font = new TexturedFont(_menuAtlas, size, "Assets/Fonts/JellyFont.ttf");
+		TexturedFont* font = new TexturedFont(_menuAtlas, size, file);
 		font->SetShader(_spriteShader);
 		Andromeda::Utils::Logger::Instance()->Log("JellyCore::Init: cache %s font\n", label);
 		int result = font->CacheGlyphs(_cache);
@@ -65,12 +69,24 @@ void JellyCore::Init()
 		return font;
 	};
 
-	_smallFont = buildFont(16, "small");
-	_menuFont = buildFont(32, "menu");
-	_titleFont = buildFont(64, "title");
+	const char* jellyFont = "Assets/Fonts/JellyFont.ttf";
+	_smallFont = buildFont(16, "small", jellyFont);
+	_bodyFont = buildFont(24, "body", jellyFont);
+	_menuFont = buildFont(32, "menu", jellyFont);
+	_titleFont = buildFont(64, "title", jellyFont);
+	_badgeFont = buildFont(18, "badge", "Assets/Fonts/Vera.ttf");
 
 	//upload texture
 	Andromeda::Utils::Logger::Instance()->Log("JellyCore::Init: create atlas texture\n");
 	_menuAtlas->CreateTexture();
 	Andromeda::Utils::Logger::Instance()->Log("JellyCore::Init: done\n");
+}
+
+void JellyCore::DrawText(glm::mat4& projection)
+{
+	_menuFont->Draw(projection);
+	_titleFont->Draw(projection);
+	_bodyFont->Draw(projection);
+	_smallFont->Draw(projection);
+	_badgeFont->Draw(projection);
 }

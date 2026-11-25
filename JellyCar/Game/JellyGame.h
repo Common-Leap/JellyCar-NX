@@ -23,6 +23,7 @@
 
 #include "../Utils/InputHelper.h"
 #include "../Utils/AudioHelper.h"
+#include "../Utils/TouchTargets.h"
 
 #include "JellyOptions.h"
 
@@ -41,6 +42,25 @@ enum GamePlayState
 	Finish,
 	OutOfBounds,
 	CarBroken
+};
+
+//entries of the pause and end of level menus
+enum OverlayItem
+{
+	OverlayResume,
+	OverlayCheckpoint,
+	OverlayNextLevel,
+	OverlayRetry,
+	OverlayOptions,
+	OverlayLevelSelect
+};
+
+//what the menu does when the level is left
+enum GameResult
+{
+	ResultLevelSelect,
+	ResultRetry,
+	ResultNextLevel
 };
 
 class JellyGame : public GameState, JellyPhysics::CollisionCallback
@@ -67,8 +87,6 @@ private:
 	Sprite* _tireSprite;
 	Sprite* _ballonSprite;
 
-	Sprite* _tireSpriteBack;
-	Sprite* _ballonSpriteBack;
 
 	//transform_meter
 	Sprite* _transformMeter;
@@ -153,8 +171,6 @@ private:
 	bool _ballonActive;
 	bool _tireActive;
 
-	bool _ballonPressed;
-	bool _tirePressed;
 
 	glm::vec4 _screenBounds;
 
@@ -166,11 +182,42 @@ private:
 
 	bool initialized;
 
+	//pause and end of level menu
+	std::vector<OverlayItem> _overlayItems;
+	int _overlaySelected;
+	float _overlayTime;
+	TouchTargets _touch;
+
+	bool _nextLevelAvailable;
+	GameResult _result;
+
     JellyOptions* _jellyOptions;
 	
 private:
 
 	void UpdateTransformMeter(float dt);
+
+	void UpdateProjection();
+
+	void OpenOverlay(GamePlayState state);
+	void HandleOverlay(GameManager* manager);
+	void SelectOverlayItem(GameManager* manager, OverlayItem item);
+	std::string OverlayLabel(OverlayItem item);
+	std::string OverlayTitle();
+
+	void ResumePlay();
+	void RespawnAtCheckpoint();
+	void FinishLevel();
+	void LeaveLevel(GameManager* manager, GameResult result);
+
+	void ToggleBallon();
+	void ToggleTire();
+
+	//power up HUD, slots run left to right from the bottom left corner
+	void PowerUpSlot(int slot, int& x, int& y);
+	AABB PowerUpTouchArea(int slot);
+	void DrawPowerUp(int slot, Sprite* icon, CarAction action, float timeLeft, bool active);
+	void DrawPowerUps();
 
 public:
 
@@ -190,7 +237,13 @@ public:
 	void Update(GameManager* manager);
 	void Draw(GameManager* manager);
 
+	//pause and end of level screens, implemented in Menus/New and Menus/Old
+	void DrawOverlay();
+
 	bool LoadLevel(LevelManager* levelManager,std::string levelName,std::string sceneName, std::string carFileName);
+
+	void SetNextLevelAvailable(bool available);
+	GameResult GetResult();
 
 	void SetChassisTextures(Texture* small, Texture* big);
 	void SetTireTextures(Texture* small, Texture* big);

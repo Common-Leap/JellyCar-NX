@@ -2,13 +2,9 @@
 
 #include <Andromeda/Utils/Logger.h>
 #include "../Utils/JellyHelper.h"
-#include "../Utils/RectangleDrawer.h"
-#include "../Utils/UiTheme.h"
-#include "../Utils/UiLayout.h"
-#include "../Utils/UiPrompt.h"
 
-#include <stdio.h> 
-#include <sstream> 
+#include <stdio.h>
+#include <sstream>
 
 JellyOptions::JellyOptions(JellyCore* core)
 {
@@ -57,6 +53,8 @@ void JellyOptions::Init()
 	_rightSprite = new Sprite("selectRight", "Assets/Jelly/Texture/right.png", "Assets/Shaders/sprite", "Assets/Shaders/sprite");
 
 	_barSprite = new Sprite("optionsBar", "Assets/Jelly/Texture/bar.png", "Assets/Shaders/sprite", "Assets/Shaders/sprite");
+	_iconSprite = new Sprite("optionsIcon", "Assets/Jelly/Texture/gamepad.png", "Assets/Shaders/sprite", "Assets/Shaders/sprite");
+
 	_barBlueSprite = new Sprite("optionsBarBlue", "Assets/Jelly/Texture/barBlue.png", "Assets/Shaders/sprite", "Assets/Shaders/sprite");
 
 	//
@@ -64,7 +62,6 @@ void JellyOptions::Init()
 
 	_creditsTexture = TextureManager::Instance()->LoadFromFile("Assets/Jelly/Texture/credits.png");
 	_libsTexture = TextureManager::Instance()->LoadFromFile("Assets/Jelly/Texture/libs.png");
-	_keyboardTexture = TextureManager::Instance()->LoadFromFile("Assets/Jelly/Texture/keyboard.png");
 	_gamepadTexture = TextureManager::Instance()->LoadFromFile("Assets/Jelly/Texture/gamepad.png");
 	_secretTexture = TextureManager::Instance()->LoadFromFile("Assets/Jelly/Texture/secret.png");
 	_volumeTexture = TextureManager::Instance()->LoadFromFile("Assets/Jelly/Texture/volume.png");
@@ -91,41 +88,26 @@ void JellyOptions::Init()
 	InitLibs();
 	InitActionNames();
 
-	//texture test
+	AddMenuItem(JellyOptionsState::Controls, "Controls", "options_keys", _gamepadTexture);
+	AddMenuItem(JellyOptionsState::Sound, "Sound", "options_sound", _volumeTexture);
+	AddMenuItem(JellyOptionsState::Credits, "Credits", "options_credits", _creditsTexture);
+	AddMenuItem(JellyOptionsState::Libs, "Libraries", "options_libs", _libsTexture);
+
 	for (size_t i = 0; i < _gameBodies.size(); i++)
 	{
-		if (_gameBodies[i]->GetName() == "options_libs")
-		{
-			_gameBodies[i]->SetTexture(_libsTexture);
-			_menuBodies.push_back(_gameBodies[i]);
-		}
-
-		if (_gameBodies[i]->GetName() == "options_credits")
-		{
-			_gameBodies[i]->SetTexture(_creditsTexture);
-			_menuBodies.push_back(_gameBodies[i]);
-		}
-
-		if (_gameBodies[i]->GetName() == "options_keys")
-		{
-			_gameBodies[i]->SetTexture(_gamepadTexture);
-			_menuBodies.push_back(_gameBodies[i]);
-		}
-
-		if (_gameBodies[i]->GetName() == "options_sound")
-		{
-			_gameBodies[i]->SetTexture(_volumeTexture);
-			_menuBodies.push_back(_gameBodies[i]);
-		}
-
 		if (_gameBodies[i]->GetName() == "options_secret")
 		{
 			_gameBodies[i]->SetTexture(_secretTexture);
-			_menuBodies.push_back(_gameBodies[i]);
 		}
 	}
 
-	_menuBodySelected = 0;
+	_menuSelected = 0;
+	_selctedPosition = 0;
+	_soundPosition = 0;
+
+	ArrangeMenu();
+	ResetScroll();
+
 	_alphaScale = 1.0f;
 
 	//binding
@@ -174,7 +156,7 @@ void JellyOptions::InitLibs()
 	_libs.push_back(Text("tinyxml", 802));
 	_libs.push_back(Text("vorbisfile", 862));
 	_libs.push_back(Text("vorbisenc", 922));
-	_libs.push_back(Text("vorbis", 9802));
+	_libs.push_back(Text("vorbis", 982));
 }
 
 void JellyOptions::InitActionNames()
@@ -195,7 +177,7 @@ void JellyOptions::InitActionNames()
 	_actionTranslation.insert(std::pair<CarAction, std::string>(CarAction::RotateRight, "Rotate Right"));
 
 	_actionTranslation.insert(std::pair<CarAction, std::string>(CarAction::Transform, "Transform"));
-	_actionTranslation.insert(std::pair<CarAction, std::string>(CarAction::Ballon, "Ballon"));
+	_actionTranslation.insert(std::pair<CarAction, std::string>(CarAction::Ballon, "Balloon"));
 	_actionTranslation.insert(std::pair<CarAction, std::string>(CarAction::Tire, "Sticky tire"));
 	_actionTranslation.insert(std::pair<CarAction, std::string>(CarAction::Map, "Map"));
 }
@@ -229,6 +211,7 @@ void JellyOptions::CleanUp()
 	delete _rightSprite;
 	delete _barSprite;
 	delete _barBlueSprite;
+	delete _iconSprite;
 
     _credits.clear();
     _libs.clear();
@@ -255,334 +238,380 @@ void JellyOptions::GameResume()
 
 }
 
-void JellyOptions::HandleEvents(GameManager* manager)
+void JellyOptions::AddMenuItem(JellyOptionsState state, std::string label, std::string bodyName, Texture* image)
 {
-	if (_optionsState == Menu)
+	MenuItem item;
+	item.State = state;
+	item.Label = label;
+	item.BodyName = bodyName;
+	item.Image = image;
+	item.Body = NULL;
+
+	for (size_t i = 0; i < _gameBodies.size(); i++)
 	{
-		//keys
-		if (_inputHelper->ActionPressed(CarAction::Left))
+		if (_gameBodies[i]->GetName() == bodyName)
 		{
-			_menuBodySelected--;
-
-			if (_menuBodySelected < 0)
-			{
-				_menuBodySelected = 0;
-			}
-		}
-
-		//move down
-		if (_inputHelper->ActionPressed(CarAction::Right))
-		{
-			_menuBodySelected++;
-			if (_menuBodySelected > _menuBodies.size() - 1)
-			{
-				_menuBodySelected = _menuBodies.size() - 1;
-			}
-		}
-
-		//touch 
-		if (_inputHelper->GetTouchCount() > 0)
-		{
-			glm::vec2 touch = _inputHelper->TouchToScreen(_screenBounds, _inputHelper->GetTouchPosition(0));
-
-			dragX = touch.x;
-			dragY = touch.y;
-
-			touchF = true;
-		}
-		else
-		{
-			//testtouch = glm::vec2(0.0f, 0.0f);
-			touchF = false;
-		}
-
-		if (touchF == true)
-		{
-			if (dragBody != NULL)
-			{
-				PointMass *pm = dragBody->getPointMass(dragPoint);
-				dragBody->setDragForce(VectorTools::calculateSpringForce(pm->Position, pm->Velocity, Vector2(dragX, dragY), Vector2(0, 0), 0.0f, 100.0f, 10.0f), dragPoint);
-			}
-		}
-		else
-		{
-			dragBody = NULL;
-			dragPoint = -1;
-		}
-
-		if (touchF == true)
-		{
-			if (dragBody == NULL)
-			{
-				int body;
-				_world->getClosestPointMass(Vector2(dragX, dragY), body, dragPoint);
-				dragBody = _world->getBody(body);
-
-				//click testing
-				for (size_t i = 0; i < _gameBodies.size(); i++)
-				{
-					if(_gameBodies[i]->GetBody()->contains(Vector2(dragX, dragY)))
-					{
-						if (_gameBodies[i]->GetName() == "options_libs")
-						{
-							_optionsState = JellyOptionsState::Libs;
-							//_libsPosition = 510;
-							_libsPosition = _renderManager->GetHeight() - (_renderManager->GetHeight() * 0.08f);;
-						}
-
-						if (_gameBodies[i]->GetName() == "options_credits")
-						{
-							_optionsState = JellyOptionsState::Credits;
-
-							//set correct positiond down
-							_creditsPosition = _renderManager->GetHeight() - (_renderManager->GetHeight() * 0.08f);
-						}
-
-						if (_gameBodies[i]->GetName() == "options_keys")
-						{
-							_optionsState = JellyOptionsState::Controls;
-							_selctedPosition = 0;
-							_alphaScale = 1.0f;
-						}
-
-						if (_gameBodies[i]->GetName() == "options_sound")
-						{
-							_optionsState = JellyOptionsState::Sound;
-							_soundPosition = 0;
-							_alphaScale = 1.0f;
-							_audioHelper->PlayFastEngine();
-						}
-					}					
-				}				
-			}
-		}
-
-		if (_inputHelper->MenuActionPressed(MenuAction::MenuAccept))
-		{
-			
-			if (_menuBodies[_menuBodySelected]->GetName() == "options_libs")
-			{
-				_optionsState = JellyOptionsState::Libs;
-				_libsPosition = _renderManager->GetHeight() - (_renderManager->GetHeight() * 0.08f);
-			}
-
-			else if (_menuBodies[_menuBodySelected]->GetName() == "options_credits")
-			{
-				_optionsState = JellyOptionsState::Credits;
-				_creditsPosition = _renderManager->GetHeight() - (_renderManager->GetHeight() * 0.08f);
-			}
-
-			else if (_menuBodies[_menuBodySelected]->GetName() == "options_keys")
-			{
-				_optionsState = JellyOptionsState::Controls;
-				_selctedPosition = 0;
-				_alphaScale = 1.0f;
-			}
-
-			else if (_menuBodies[_menuBodySelected]->GetName() == "options_sound")
-			{
-				_optionsState = JellyOptionsState::Sound;
-				_soundPosition = 0;
-				_alphaScale = 1.0f;
-				_audioHelper->PlayFastEngine();
-			}
-		}
-
-		if (_inputHelper->MenuActionPressed(MenuAction::MenuBack))
-		{
-			manager->PopState();
-			return;
+			_gameBodies[i]->SetTexture(image);
+			item.Body = _gameBodies[i];
 		}
 	}
-	else if (_optionsState == JellyOptionsState::Controls)
+
+	_menuItems.push_back(item);
+}
+
+JellyOptions::JellyOptionsState JellyOptions::CurrentPage()
+{
+	if (_optionsState == Menu && !_showBodies)
 	{
-		//_inputHelper->ChangeMappingForAction(Action...)
+		return _menuItems[_menuSelected].State;
+	}
 
-		if (_changeBinding)
-		{
-			if (_inputHelper->ChangeInputForAction(_selectedAction))
-			{
-				_changeBinding = false;
-			}
-		}else
-		{
-			//move up
-			if (_inputHelper->MenuActionPressed(MenuAction::MenuUp))
-			{
-				_selctedPosition--;
-				if (_selctedPosition < 0)
-				{
-					_selctedPosition = 0;
-				}
-			}
+	return _optionsState;
+}
 
-			//move down
-			if (_inputHelper->MenuActionPressed(MenuAction::MenuDown))
-			{
-				_selctedPosition++;
-				if (_selctedPosition > _carActions.size() - 1)
-				{
-					_selctedPosition = _carActions.size() - 1;
-				}
-			}
+std::vector<Text>& JellyOptions::ScrollText()
+{
+	return CurrentPage() == Libs ? _libs : _credits;
+}
 
-			if (_inputHelper->MenuActionPressed(MenuAction::MenuAccept))
-			{
-				//check action to process
-				_selectedAction = _carActions[_selctedPosition];
-				_changeBinding = true;
+void JellyOptions::ResetScroll()
+{
+	//come in from below, or start at the top when the page is already visible
+	_scrollPosition = _showBodies ? _scrollBottom : _scrollTop + 40.0f;
+}
 
-				_inputHelper->UpdateAllInputs(true);
-			}
-
-			if (_inputHelper->MenuActionPressed(MenuAction::MenuBack))
-			{
-				//save settings
-				_inputHelper->SaveSettings();
-				
-				//go back to options menu
-				_optionsState = Menu;
-			}
-		}		
-	}else if (_optionsState == JellyOptionsState::Sound)
+void JellyOptions::SelectItem(int item)
+{
+	if (item < 0 || item >= (int)_menuItems.size() || item == _menuSelected)
 	{
-		//move up
-		if (_inputHelper->MenuActionPressed(MenuAction::MenuUp))
+		return;
+	}
+
+	_menuSelected = item;
+	ResetScroll();
+}
+
+void JellyOptions::OpenPage(JellyOptionsState state)
+{
+	for (size_t i = 0; i < _menuItems.size(); i++)
+	{
+		if (_menuItems[i].State == state)
 		{
-			_soundPosition--;
-			if (_soundPosition < 0)
-			{
-				_soundPosition = 0;
-			}
-
-			_audioHelper->StopEngineSound();
-
-			if (_soundPosition == 0)
-			{
-				_audioHelper->PlayFastEngine();
-			}
+			SelectItem(i);
 		}
+	}
 
-		//move down
-		if (_inputHelper->MenuActionPressed(MenuAction::MenuDown))
-		{
-			_soundPosition++;
-			if (_soundPosition > 2)
-			{
-				_soundPosition = 2;
-			}
+	_optionsState = state;
+	_alphaScale = 1.0f;
 
-			_audioHelper->StopEngineSound();
-
-			if (_soundPosition == 0)
-			{
-				_audioHelper->PlayFastEngine();
-			}
-		}
-
-		if (_inputHelper->MenuActionPressed(MenuAction::MenuLeft))
-		{
-			if (_soundPosition == 0)
-			{
-				_optionsCarLevel--;
-				if (_optionsCarLevel < 0)
-				{
-					_optionsCarLevel = 0;
-				}
-
-				_audioHelper->SetVolume(AudioHelper::AudioHelperSoundEnum::Car, (float)_optionsCarLevel / 10.0f);
-			}
-
-			if (_soundPosition == 1)
-			{
-				_optionsSoundLevel--;
-				if (_optionsSoundLevel < 0)
-				{
-					_optionsSoundLevel = 0;
-				}
-
-				_audioHelper->SetVolume(AudioHelper::AudioHelperSoundEnum::Sounds, (float)_optionsSoundLevel / 10.0f);
-				_audioHelper->PlayHitSound();
-			}
-
-			if (_soundPosition == 2)
-			{
-				_optionsMusicLevel--;
-				if (_optionsMusicLevel < 0)
-				{
-					_optionsMusicLevel = 0;
-				}
-
-				_audioHelper->SetVolume(AudioHelper::AudioHelperSoundEnum::Music, (float)_optionsMusicLevel / 10.0f);
-			}
-		}
-
-		//move down
-		if (_inputHelper->MenuActionPressed(MenuAction::MenuRight))
-		{
-			if (_soundPosition == 0)
-			{
-				_optionsCarLevel++;
-				if (_optionsCarLevel > 10)
-				{
-					_optionsCarLevel = 10;
-				}
-
-				_audioHelper->SetVolume(AudioHelper::AudioHelperSoundEnum::Car, (float)_optionsCarLevel / 10.0f);
-			}
-			
-			if (_soundPosition == 1)
-			{
-				_optionsSoundLevel++;
-				if (_optionsSoundLevel > 10)
-				{
-					_optionsSoundLevel = 10;
-				}
-
-				_audioHelper->SetVolume(AudioHelper::AudioHelperSoundEnum::Sounds, (float)_optionsSoundLevel / 10.0f);
-				_audioHelper->PlayHitSound();
-			}
-
-			if (_soundPosition == 2)
-			{
-				_optionsMusicLevel++;
-				if (_optionsMusicLevel > 10)
-				{
-					_optionsMusicLevel = 10;
-				}
-
-				_audioHelper->SetVolume(AudioHelper::AudioHelperSoundEnum::Music, (float)_optionsMusicLevel / 10.0f);
-			}
-		}
-
-		if (_inputHelper->MenuActionPressed(MenuAction::MenuBack))
-		{
-			//cave settings
-			_audioHelper->SaveSettings();
-
-			//stop engine sound
-			_audioHelper->StopEngineSound();
-
-			//go back to menu options
-			_optionsState = Menu;
-		}
+	if (state == Controls)
+	{
+		_selctedPosition = 0;
+	}
+	else if (state == Sound)
+	{
+		_soundPosition = 0;
+		_audioHelper->PlayFastEngine();
 	}
 	else
 	{
-		if (_inputHelper->MenuActionPressed(MenuAction::MenuBack))
+		ResetScroll();
+	}
+}
+
+bool JellyOptions::HandleBodyTouch()
+{
+	if (_inputHelper->GetTouchCount() == 0)
+	{
+		dragBody = NULL;
+		dragPoint = -1;
+		return false;
+	}
+
+	glm::vec2 touch = _inputHelper->TouchToScreen(_screenBounds, _inputHelper->GetTouchPosition(0));
+
+	dragX = touch.x;
+	dragY = touch.y;
+
+	if (dragBody != NULL)
+	{
+		PointMass *pm = dragBody->getPointMass(dragPoint);
+		dragBody->setDragForce(VectorTools::calculateSpringForce(pm->Position, pm->Velocity, Vector2(dragX, dragY), Vector2(0, 0), 0.0f, 100.0f, 10.0f), dragPoint);
+		return false;
+	}
+
+	int body;
+	_world->getClosestPointMass(Vector2(dragX, dragY), body, dragPoint);
+	dragBody = _world->getBody(body);
+
+	//click testing
+	for (size_t i = 0; i < _menuItems.size(); i++)
+	{
+		if (_menuItems[i].Body != NULL && _menuItems[i].Body->GetBody()->contains(Vector2(dragX, dragY)))
 		{
-			_optionsState = Menu;
+			OpenPage(_menuItems[i].State);
+			return true;
 		}
 	}
 
-	_inputHelper->Update();
+	return false;
+}
+
+void JellyOptions::HandleMenu(GameManager* manager, int touched)
+{
+	if (_showBodies && HandleBodyTouch())
+	{
+		return;
+	}
+
+	if (touched >= TouchItem && touched < TouchItem + (int)_menuItems.size())
+	{
+		OpenPage(_menuItems[touched - TouchItem].State);
+		return;
+	}
+
+	//the bodies are side by side, the list goes down
+	if (_inputHelper->MenuActionPressed(_showBodies ? MenuAction::MenuLeft : MenuAction::MenuUp))
+	{
+		SelectItem(_menuSelected - 1);
+	}
+
+	if (_inputHelper->MenuActionPressed(_showBodies ? MenuAction::MenuRight : MenuAction::MenuDown))
+	{
+		SelectItem(_menuSelected + 1);
+	}
+
+	if (_inputHelper->MenuActionPressed(MenuAction::MenuAccept))
+	{
+		OpenPage(_menuItems[_menuSelected].State);
+		return;
+	}
+
+	if (touched == TouchBack || _inputHelper->MenuActionPressed(MenuAction::MenuBack))
+	{
+		manager->PopState();
+	}
+}
+
+void JellyOptions::StartBinding(int position)
+{
+	_selctedPosition = position;
+	_selectedAction = _carActions[position];
+	_changeBinding = true;
+
+	_inputHelper->UpdateAllInputs(true);
+}
+
+void JellyOptions::MoveBinding(int column, int row)
+{
+	const int rows = (int)_carActions.size() / 2;
+
+	int x = _selctedPosition / rows + column;
+	int y = _selctedPosition % rows + row;
+
+	if (x >= 0 && x < 2 && y >= 0 && y < rows)
+	{
+		_selctedPosition = x * rows + y;
+	}
+}
+
+void JellyOptions::HandleControls(int touched)
+{
+	if (_changeBinding)
+	{
+		if (_inputHelper->ChangeInputForAction(_selectedAction) != BindWaiting || touched != TouchTargets::None)
+		{
+			_inputHelper->UpdateAllInputs(false);
+			_changeBinding = false;
+		}
+
+		return;
+	}
+
+	if (touched >= TouchBinding && touched < TouchBinding + (int)_carActions.size())
+	{
+		StartBinding(touched - TouchBinding);
+		return;
+	}
+
+	if (_inputHelper->MenuActionPressed(MenuAction::MenuUp))
+		MoveBinding(0, -1);
+
+	if (_inputHelper->MenuActionPressed(MenuAction::MenuDown))
+		MoveBinding(0, 1);
+
+	if (_inputHelper->MenuActionPressed(MenuAction::MenuLeft))
+		MoveBinding(-1, 0);
+
+	if (_inputHelper->MenuActionPressed(MenuAction::MenuRight))
+		MoveBinding(1, 0);
+
+	if (touched == TouchReset || _inputHelper->MenuActionPressed(MenuAction::MenuReset))
+	{
+		_inputHelper->ResetCarControls();
+	}
+
+	if (_inputHelper->MenuActionPressed(MenuAction::MenuAccept))
+	{
+		StartBinding(_selctedPosition);
+		return;
+	}
+
+	if (touched == TouchBack || _inputHelper->MenuActionPressed(MenuAction::MenuBack))
+	{
+		//save settings
+		_inputHelper->SaveSettings();
+
+		//go back to options menu
+		_optionsState = Menu;
+	}
+}
+
+int& JellyOptions::VolumeLevel(int position)
+{
+	if (position == 0)
+		return _optionsCarLevel;
+
+	if (position == 1)
+		return _optionsSoundLevel;
+
+	return _optionsMusicLevel;
+}
+
+void JellyOptions::SetVolumeLevel(int position, int level)
+{
+	int& current = VolumeLevel(position);
+
+	if (level < 0 || level > 10 || level == current)
+	{
+		return;
+	}
+
+	current = level;
+
+	if (position == 0)
+	{
+		_audioHelper->SetVolume(AudioHelper::AudioHelperSoundEnum::Car, (float)level / 10.0f);
+	}
+	else if (position == 1)
+	{
+		_audioHelper->SetVolume(AudioHelper::AudioHelperSoundEnum::Sounds, (float)level / 10.0f);
+		_audioHelper->PlayHitSound();
+	}
+	else
+	{
+		_audioHelper->SetVolume(AudioHelper::AudioHelperSoundEnum::Music, (float)level / 10.0f);
+	}
+}
+
+void JellyOptions::SelectVolume(int position)
+{
+	if (position < 0 || position > 2 || position == _soundPosition)
+	{
+		return;
+	}
+
+	_soundPosition = position;
+
+	//the engine only runs while its volume is selected
+	_audioHelper->StopEngineSound();
+
+	if (_soundPosition == 0)
+	{
+		_audioHelper->PlayFastEngine();
+	}
+}
+
+void JellyOptions::HandleSound(int touched)
+{
+	if (_inputHelper->MenuActionPressed(MenuAction::MenuUp))
+		SelectVolume(_soundPosition - 1);
+
+	if (_inputHelper->MenuActionPressed(MenuAction::MenuDown))
+		SelectVolume(_soundPosition + 1);
+
+	if (_inputHelper->MenuActionPressed(MenuAction::MenuLeft))
+		SetVolumeLevel(_soundPosition, VolumeLevel(_soundPosition) - 1);
+
+	if (_inputHelper->MenuActionPressed(MenuAction::MenuRight))
+		SetVolumeLevel(_soundPosition, VolumeLevel(_soundPosition) + 1);
+
+	//the bars can be dragged
+	if (_volumeBarW > 0 && _inputHelper->GetTouchCount() > 0)
+	{
+		glm::vec2 touch = _inputHelper->GetTouchPosition(0);
+		int id = _touch.Find(touch);
+
+		if (id >= TouchVolume && id < TouchVolume + 3)
+		{
+			float level = (touch.x - _volumeBarX) * 10.0f / _volumeBarW + 0.5f;
+
+			SelectVolume(id - TouchVolume);
+			SetVolumeLevel(id - TouchVolume, level < 0.0f ? 0 : (level > 10.0f ? 10 : (int)level));
+		}
+	}
+
+	if (touched == TouchBack || _inputHelper->MenuActionPressed(MenuAction::MenuBack))
+	{
+		//save settings
+		_audioHelper->SaveSettings();
+
+		//stop engine sound
+		_audioHelper->StopEngineSound();
+
+		//go back to menu options
+		_optionsState = Menu;
+	}
+}
+
+void JellyOptions::HandleText(int touched)
+{
+	if (_inputHelper->MenuActionPressed(MenuAction::MenuUp))
+		_scrollPosition += 40.0f;
+
+	if (_inputHelper->MenuActionPressed(MenuAction::MenuDown))
+		_scrollPosition -= 40.0f;
+
+	if (touched == TouchBack || _inputHelper->MenuActionPressed(MenuAction::MenuBack))
+	{
+		_optionsState = Menu;
+	}
+}
+
+void JellyOptions::HandleEvents(GameManager* manager)
+{
+	glm::vec2 point;
+	int touched = TouchTargets::None;
+	if (_inputHelper->TouchPressed(point))
+	{
+		touched = _touch.Find(point);
+	}
+
+	switch (_optionsState)
+	{
+	case Menu:
+		HandleMenu(manager, touched);
+		break;
+	case Controls:
+		HandleControls(touched);
+		break;
+	case Sound:
+		HandleSound(touched);
+		break;
+	default:
+		HandleText(touched);
+		break;
+	}
+
+	//going back deletes this object
+	InputHelper::Instance()->Update();
 }
 
 void JellyOptions::Update(GameManager* manager)
 {
 	_dt = _timer->GetDelta();
 
-	if (_optionsState == Menu)
+	if (_optionsState == Menu && _showBodies)
 	{
 		//Update physic
 		for (int i = 0; i < 6; i++)
@@ -592,293 +621,34 @@ void JellyOptions::Update(GameManager* manager)
 			for (size_t i = 0; i < _gameBodies.size(); i++)
 				_gameBodies[i]->Update(0.004f);
 		}
+	}
 
-		//update alpha scale
-		_alphaScale += (_scaleFactor  * _dt);
-
-		if (_alphaScale > 1.0f)
-		{
-			_scaleFactor = -2.0f;
-		}
-
-		if (_alphaScale < 0.0f)
-		{
-			_scaleFactor = 2.0f;
-		}
-	}	
-
-	if (_optionsState == Credits)
+	if (CurrentPage() == Credits || CurrentPage() == Libs)
 	{
-		_creditsPosition -= (_dt * 40);
+		_scrollPosition -= (_dt * 40);
 
-		bool reset = true;
-		for (size_t i = 0; i < _credits.size(); i++)
+		//start over once the last line is gone, and don't scroll back past the first one
+		if (ScrollText().back().StartPosition + _scrollPosition < _scrollTop)
 		{
-			if (_credits[i].StartPosition + _creditsPosition > (_renderManager->GetWidth() * 0.13f))
-			{
-				reset = false;
-			}
+			_scrollPosition = _scrollBottom;
 		}
 
-		if (reset)
+		if (_scrollPosition > _scrollBottom)
 		{
-			_creditsPosition = _renderManager->GetHeight() - (_renderManager->GetHeight() * 0.08f);;
+			_scrollPosition = _scrollBottom;
 		}
 	}
 
-	if (_optionsState == Libs)
+	//update alpha scale
+	_alphaScale += (_scaleFactor * _dt);
+
+	if (_alphaScale > 1.0f)
 	{
-		_libsPosition -= (_dt * 40);
-
-		bool reset = true;
-		for (size_t i = 0; i < _libs.size(); i++)
-		{
-			if (_libs[i].StartPosition + _libsPosition > (_renderManager->GetWidth() * 0.13f))
-			{
-				reset = false;
-			}
-		}
-
-		if (reset)
-		{
-			_libsPosition = _renderManager->GetHeight() - (_renderManager->GetHeight() * 0.08f);;
-		}
+		_scaleFactor = -2.0f;
 	}
 
-	if (_optionsState == Controls)
+	if (_alphaScale < 0.0f)
 	{
-		_alphaScale += (_scaleFactor  * _dt);
-
-		if (_alphaScale > 1.0f)
-		{
-			_scaleFactor = -2.0f;
-		}
-
-		if (_alphaScale < 0.0f)
-		{
-			_scaleFactor = 2.0f;
-		}
+		_scaleFactor = 2.0f;
 	}
-
-	if (_optionsState == Sound)
-	{
-		_alphaScale += (_scaleFactor  * _dt);
-
-		if (_alphaScale > 1.0f)
-		{
-			_scaleFactor = -2.0f;
-		}
-
-		if (_alphaScale < 0.0f)
-		{
-			_scaleFactor = 2.0f;
-		}
-	}
-}
-
-void JellyOptions::Draw(GameManager* manager)
-{
-	RectangleDrawer* ui = RectangleDrawer::Instance();
-
-	_renderManager->StartFrame();
-	_renderManager->ClearScreen();
-
-	int screenW = _renderManager->GetWidth();
-	int screenH = _renderManager->GetHeight();
-
-	ui->DrawPaperBackground(_backSprite, screenW, screenH, _projection);
-
-	//menu level drawing
-	if (_optionsState == Menu)
-	{
-		for (size_t i = 0; i < _gameBodies.size(); i++)
-		{
-			_gameBodies[i]->SetLineColor(glm::vec4(0, 0, 0, 1.0f));
-		}
-
-		//set alpha value for selected menu
-		_menuBodies[_menuBodySelected]->SetLineColor(glm::vec4(0,0,1,_alphaScale));
-
-		//menu level
-		for (size_t i = 0; i < _gameBodies.size(); i++)
-		{
-			_gameBodies[i]->Draw(_jellyProjection);
-		}
-	}else
-	{
-		//menu level
-		for (size_t i = 0; i < _gameBodies.size(); i++)
-		{
-			if (_gameBodies[i]->GetBody()->getIsStatic())
-			{
-				_gameBodies[i]->Draw(_jellyProjection);
-			}			
-		}
-	}
-
-	int centerX = screenW / 2;
-
-	switch (_optionsState)
-	{
-		case JellyOptionsState::Menu:
-		{
-			ui->DrawPanel(centerX - 160, 36, 320, 56, UiTheme::BarRadius(), _projection);
-			_titleFont->AddText("Options", centerX, UiLayout::BaselineInPanel(36, 56, UiLayout::TitleFontSize),
-				UiTheme::TextHighlight(), FontCenter);
-		}
-		break;
-		case JellyOptionsState::Sound:
-		{
-			int panelX = centerX - 340;
-			int panelY = 100;
-			int panelW = 680;
-			int panelH = 420;
-			ui->DrawPanel(panelX, panelY, panelW, panelH, UiTheme::PanelRadius(), _projection);
-
-			int labelX = panelX + 36;
-			int barX = centerX - 90;
-			int barW = 360;
-			int barH = 22;
-			int rowStep = 120;
-			int firstBarY = panelY + 110;
-
-			ui->DrawPanel(centerX - 200, 36, 400, 56, UiTheme::BarRadius(), _projection);
-			_titleFont->AddText("Sound Levels", centerX, UiLayout::BaselineInPanel(36, 56, UiLayout::TitleFontSize),
-				UiTheme::TextHighlight(), FontCenter);
-
-			const char* labels[] = { "Car", "Sounds", "Music" };
-			float levels[] = { _optionsCarLevel / 10.0f, _optionsSoundLevel / 10.0f, _optionsMusicLevel / 10.0f };
-			int levelValues[] = { _optionsCarLevel, _optionsSoundLevel, _optionsMusicLevel };
-
-			for (int i = 0; i < 3; i++)
-			{
-				int barY = firstBarY + i * rowStep;
-				int labelY = UiLayout::BaselineCenter(barY, barH, UiLayout::MenuFontSize);
-				glm::vec3 labelCol = (_soundPosition == i) ? UiTheme::TextHighlight() : UiTheme::TextPrimary();
-				_menuFont->AddText(labels[i], labelX, labelY, labelCol, FontLeft);
-
-				ui->DrawProgressBar(barX, barY, barW, barH, 11.0f, levels[i], _soundPosition == i, _projection);
-
-				char levelBuf[8];
-				sprintf(levelBuf, "%d", levelValues[i]);
-				_smallFont->AddText(levelBuf, barX + barW + 20,
-					UiLayout::BaselineCenter(barY, barH, UiLayout::SmallFontSize),
-					UiTheme::TextMuted(), FontLeft);
-			}
-		}
-		break;
-		case JellyOptionsState::Controls: 
-		{
-			int startPosition = screenH / 2 - 100;
-			int step = 45;
-			int rowW = 280;
-			int rowH = 38;
-
-			ui->DrawPanel(centerX - 200, 36, 400, 56, UiTheme::BarRadius(), _projection);
-			_titleFont->AddText("Car Controls", centerX, UiLayout::BaselineInPanel(36, 56, UiLayout::TitleFontSize),
-				UiTheme::TextHighlight(), FontCenter);
-
-			ui->DrawPanel(centerX - 340, 96, 680, 380, UiTheme::PanelRadius(), _projection);
-
-			if (_selctedPosition < 4)
-			{
-				ui->DrawHighlightRow(centerX - 320, startPosition - 14 + (_selctedPosition * step), rowW, rowH, 12.0f, _projection);
-			}
-			else
-			{
-				ui->DrawHighlightRow(centerX + 40, startPosition - 14 + (_selctedPosition * step) - (step * 4), rowW, rowH, 12.0f, _projection);
-			}
-
-			for (size_t i = 0; i < 4; i++)
-			{
-				int rowY = startPosition - 14 + (int)i * step;
-				int textY = UiLayout::BaselineCenter(rowY, rowH, UiLayout::MenuFontSize);
-				glm::vec3 col = (int)i == _selctedPosition && !_changeBinding ? UiTheme::TextHighlight() : UiTheme::TextPrimary();
-				_menuFont->AddText(_actionTranslation[_carActions[i]], centerX - 90, textY, col, FontRight);
-			}
-
-			for (size_t i = 4; i < _carActions.size(); i++)
-			{
-				int rowY = startPosition - 14 + ((int)i - 4) * step;
-				int textY = UiLayout::BaselineCenter(rowY, rowH, UiLayout::MenuFontSize);
-				glm::vec3 col = (int)i == _selctedPosition && !_changeBinding ? UiTheme::TextHighlight() : UiTheme::TextPrimary();
-				_menuFont->AddText(_actionTranslation[_carActions[i]], centerX + 90, textY, col, FontLeft);
-			}
-
-			for (size_t i = 0; i < 4; i++)
-			{
-				int rowY = startPosition - 14 + (int)i * step;
-				int iconCy = UiLayout::CenterY(rowY, rowH);
-				if (!(_changeBinding && (int)i == _selctedPosition))
-				{
-					UiPrompt::DrawInputBadge(ui, _smallFont, _projection, centerX - 40, iconCy,
-						_inputHelper->CarActionLabel(_carActions[i]).c_str());
-				}
-			}
-
-			for (size_t i = 4; i < _carActions.size(); i++)
-			{
-				int rowY = startPosition - 14 + ((int)i - 4) * step;
-				int iconCy = UiLayout::CenterY(rowY, rowH);
-				if (!(_changeBinding && (int)i == _selctedPosition))
-				{
-					UiPrompt::DrawInputBadge(ui, _smallFont, _projection, centerX + 40, iconCy,
-						_inputHelper->CarActionLabel(_carActions[i]).c_str());
-				}
-			}
-		}
-		break;
-		case JellyOptionsState::Credits:
-		{
-			ui->DrawPanel(centerX - 160, 36, 320, 56, UiTheme::BarRadius(), _projection);
-			_titleFont->AddText("Credits", centerX, UiLayout::BaselineInPanel(36, 56, UiLayout::TitleFontSize),
-				UiTheme::TextHighlight(), FontCenter);
-
-			for (size_t i = 0; i < _credits.size(); i++)
-			{
-				if (_credits[i].StartPosition + _creditsPosition  > (screenW * 0.13f) && _credits[i].StartPosition + _creditsPosition < (screenH - (screenH * 0.08f)))
-				{
-					_menuFont->AddText(_credits[i].Content, centerX, _credits[i].StartPosition + _creditsPosition,
-						UiTheme::TextPrimary(), FontCenter);
-				}
-			}
-		}
-		break;
-		case JellyOptionsState::Libs:
-		{
-			ui->DrawPanel(centerX - 120, 36, 240, 56, UiTheme::BarRadius(), _projection);
-			_titleFont->AddText("Libs", centerX, UiLayout::BaselineInPanel(36, 56, UiLayout::TitleFontSize),
-				UiTheme::TextHighlight(), FontCenter);
-
-			for (size_t i = 0; i < _libs.size(); i++)
-			{
-				if (_libs[i].StartPosition + _libsPosition  > (screenW * 0.13f) && _libs[i].StartPosition + _libsPosition < (screenH - (screenH * 0.08f)))
-				{
-					_menuFont->AddText(_libs[i].Content, centerX, _libs[i].StartPosition + _libsPosition,
-						UiTheme::TextPrimary(), FontCenter);
-				}
-			}
-		}
-		break;
-		case JellyOptionsState::Secret:
-		{
-			//?
-		}
-		break;
-	}
-
-	ui->DrawBottomBar(screenW, screenH, _projection);
-
-	int barX, barY, barW, barH;
-	ui->GetBottomBarRect(screenW, screenH, barX, barY, barW, barH);
-
-	UiPrompt::DrawPromptInSlot(ui, _smallFont, _menuFont, _projection,
-		barX, barW, barY, barH,
-		_inputHelper->MenuActionLabel(MenuAction::MenuBack).c_str(), "Back");
-
-	_menuFont->Draw(_projection);
-	_titleFont->Draw(_projection);
-	_smallFont->Draw(_projection);
-
-	_renderManager->EndFrame();
 }

@@ -46,12 +46,6 @@ public:
 		float fillAmount, bool focused, glm::mat4& projection);
 
 	void DrawDimOverlay(int screenW, int screenH, float alpha, glm::mat4& projection);
-
-	void DrawHighlightRow(int x, int y, int width, int height, float cornerRadius, glm::mat4& projection);
-
-	void DrawBottomBar(int screenW, int screenH, glm::mat4& projection);
-
-	void GetBottomBarRect(int screenW, int screenH, int& x, int& y, int& w, int& h);
 };
 
 #endif

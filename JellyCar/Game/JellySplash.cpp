@@ -1,8 +1,8 @@
 #include "JellySplash.h"
 #include "JellyIntro.h"
 
+#include "../Utils/InputHelper.h"
 #include "../Utils/RectangleDrawer.h"
-#include "../Utils/UiTheme.h"
 
 void JellySplash::Init()
 {
@@ -20,23 +20,7 @@ void JellySplash::Init()
 	_backSprite = new Sprite("paper", "Assets/Jelly/Texture/paper.png", "Assets/Shaders/sprite", "Assets/Shaders/sprite");
 
 
-	std::string splashFile = "Assets/Images/splash_switch.png";
-
-#ifdef ANDROMEDA_VITA
-
-	splashFile = "Assets/Images/splash_vita.png";
-
-#endif
-
-#ifdef ANDROMEDA_SWITCH
-
-	splashFile = "Assets/Images/splash_switch.png";
-
-#endif
-
-	_image = _textureManager->LoadFromFile(splashFile);
-
-
+	_image = _textureManager->LoadFromFile("Assets/Images/splash_switch.png");
 
 	//sprite
 	_sprite = new Sprite("splash", _image, _shader);
@@ -89,7 +73,12 @@ void JellySplash::GameResume()
 
 void JellySplash::HandleEvents(GameManager* manager)
 {
+	if (InputHelper::Instance()->SkipPressed())
+	{
+		_splashTimer = 4.0f;
+	}
 
+	InputHelper::Instance()->Update();
 }
 
 void JellySplash::Update(GameManager* manager)
@@ -133,35 +122,4 @@ void JellySplash::Update(GameManager* manager)
 	}
 
 	_sprite->SetSolor(glm::vec4(1.0f, 1.0f, 1.0f, _alpha));
-}
-
-void JellySplash::Draw(GameManager* manager)
-{
-	if (_end)
-		return;
-
-	//start frame
-	_renderManager->StartFrame();
-	_renderManager->ClearScreen();
-
-	int screenW = _renderManager->GetWidth();
-	int screenH = _renderManager->GetHeight();
-	RectangleDrawer* ui = RectangleDrawer::Instance();
-	ui->DrawPaperBackground(_backSprite, screenW, screenH, _projection);
-
-	int logoW = (int)(_sprite->GetTexture()->GetWidth());
-	int logoH = (int)(_sprite->GetTexture()->GetHeight());
-	int panelPad = 28;
-	ui->DrawPanel(
-		(screenW - logoW) / 2 - panelPad,
-		(screenH - logoH) / 2 - panelPad,
-		logoW + panelPad * 2,
-		logoH + panelPad * 2,
-		UiTheme::PanelRadius(),
-		_projection);
-
-	_sprite->Draw(_projection);
-
-	//end frame
-	_renderManager->EndFrame();
 }

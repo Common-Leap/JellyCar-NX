@@ -1,25 +1,8 @@
-# Compiled objects and dependency files
-**/*.o
-**/*.d
-**/*.lst
+# Build directories
+Build/Switch/build-*/
+Build/Switch/romfs/
 
-# Switch / general build working directories
-**/build/
-**/romfs/
-**/.tmp/
-
-# Switch link and package outputs
+# Link and package outputs
 Build/Switch/*.elf
 Build/Switch/*.nro
 Build/Switch/*.nacp
-Build/Switch/*.nsp
-Build/Switch/*.nso
-Build/Switch/*.npdm
-Build/Switch/*.map
-
-# IDE user settings (machine-specific)
-Build/Windows/**/*.user
-Build/Windows/**/*.DotSettings.user
-
-# Generated assets
-Assets/Jelly/Texture/white.png

@@ -5,10 +5,6 @@
 #include "JellyOptions.h"
 
 #include "../Utils/JellyHelper.h"
-#include "../Utils/RectangleDrawer.h"
-#include "../Utils/UiTheme.h"
-#include "../Utils/UiLayout.h"
-#include "../Utils/UiPrompt.h"
 
 #include <Andromeda/Utils/Logger.h>
 
@@ -70,7 +66,17 @@ void JellyMenuBetter::Init()
 	_backSprite = new Sprite("paper", "Assets/Jelly/Texture/paper.png", "Assets/Shaders/sprite", "Assets/Shaders/sprite");
 	_levelImage = new Sprite("thumb", _levelManager->GetThumb(_sceneFiles[0]), _shader);
 
+	//grid cell box, drawn by the old menu
+	_boxSprite = new Sprite("roundedbox", "Assets/Jelly/Texture/rounded_box.png", "Assets/Shaders/sprite", "Assets/Shaders/sprite");
+
 	_jellyGame = nullptr;
+	_jellyOptions = nullptr;
+	_launchLevel = false;
+	_confirmExit = false;
+	_confirmYes = true;
+	_cursorX = 0.0f;
+	_cursorY = 0.0f;
+	_cursorPlaced = false;
 	_focusPulse = 0.0f;
 	_focusPhase = 0.0f;
 
@@ -80,8 +86,8 @@ void JellyMenuBetter::Init()
 	_levelManager->LoadCompiledLevel(_world, "menu.scene", "Assets/Jelly/car_and_truck.car");
 
 	_car = _levelManager->GetCar();
-	_car->SetChassisTextures(_levelManager->GetCarImage(_carSkins[0].chassisSmall), _levelManager->GetCarImage(_carSkins[0].chassisBig));
-	_car->SetTireTextures(_levelManager->GetCarImage(_carSkins[0].tireSmall), _levelManager->GetCarImage(_carSkins[0].tireBig));
+	carcurrentPosition = 0;
+	UpdateCarSkin();
 
 	_gameBodies = _levelManager->GetLevelBodies();
 
@@ -97,7 +103,6 @@ void JellyMenuBetter::Init()
 	LOG("JellyMenuBetter::Init grid pages=%d pageSize=%d\n", _totalPages, PAGE_SIZE);
 
 	// car skin selection
-	carcurrentPosition  = 0;
 	carcolumnStartPosition = 0;
 	carpositionsInColumn   = 5;
 
@@ -127,6 +132,7 @@ void JellyMenuBetter::CleanUp()
 
 	delete _backSprite;
 	delete _levelImage;
+	delete _boxSprite;
 
 	_shaderManager->RemoveAll();
 	_textureManager->RemoveAll();
@@ -142,9 +148,24 @@ void JellyMenuBetter::Resume()
 
 	if (_jellyGame != nullptr)
 	{
+		GameResult result = _jellyGame->GetResult();
+
+		if (result == ResultNextLevel)
+		{
+			SelectLevel(CurrentIndex() + 1);
+		}
+
+		_launchLevel = result != ResultLevelSelect;
+
 		delete _jellyGame;
 		_jellyGame = nullptr;
 	}
+
+	delete _jellyOptions;
+	_jellyOptions = nullptr;
+
+	//the time away does not count
+	_timer->GetDelta();
 
 	_inputHelper->Update();
 }
@@ -157,185 +178,242 @@ void JellyMenuBetter::GameResume()
 {
 }
 
+void JellyMenuBetter::SelectLevel(int index)
+{
+	int last = (int)_sceneFiles.size() - 1;
+
+	if (index < 0)
+		index = 0;
+
+	if (index > last)
+		index = last;
+
+	_currentPage = index / PAGE_SIZE;
+	_gridRow = (index % PAGE_SIZE) / GRID_COLS;
+	_gridCol = index % GRID_COLS;
+
+	_levelImage->SetTexture(_levelManager->GetThumb(_sceneFiles[index]));
+}
+
+int JellyMenuBetter::LastRowOnPage()
+{
+	int onPage = (int)_sceneFiles.size() - _currentPage * PAGE_SIZE;
+	if (onPage > PAGE_SIZE)
+		onPage = PAGE_SIZE;
+
+	return (onPage - 1) / GRID_COLS;
+}
+
+void JellyMenuBetter::MoveHorizontal(int step)
+{
+	int total = (int)_sceneFiles.size();
+	int col = _gridCol + step;
+
+	if (col >= 0 && col < GRID_COLS && CurrentIndex() + step < total)
+	{
+		SelectLevel(CurrentIndex() + step);
+	}
+	else
+	{
+		//same row on the page next to this one
+		_currentPage = (_currentPage + step + _totalPages) % _totalPages;
+		_gridCol = step > 0 ? 0 : GRID_COLS - 1;
+
+		if (_gridRow > LastRowOnPage())
+			_gridRow = LastRowOnPage();
+
+		SelectLevel(CurrentIndex());
+	}
+
+	_audioHelper->PlayHitSound();
+}
+
+void JellyMenuBetter::MoveVertical(int step)
+{
+	int rows = LastRowOnPage() + 1;
+	_gridRow = (_gridRow + step + rows) % rows;
+
+	SelectLevel(CurrentIndex());
+	_audioHelper->PlayHitSound();
+}
+
+void JellyMenuBetter::ChangePage(int step)
+{
+	if (_totalPages < 2)
+	{
+		return;
+	}
+
+	_currentPage = (_currentPage + step + _totalPages) % _totalPages;
+
+	SelectLevel(CurrentIndex());
+	_audioHelper->PlayHitSound();
+}
+
+void JellyMenuBetter::UpdateCarSkin()
+{
+	SkinInfo& skin = _carSkins[carcurrentPosition];
+
+	_car->SetChassisTextures(_levelManager->GetCarImage(skin.chassisSmall), _levelManager->GetCarImage(skin.chassisBig));
+	_car->SetTireTextures(_levelManager->GetCarImage(skin.tireSmall), _levelManager->GetCarImage(skin.tireBig));
+}
+
+void JellyMenuBetter::ChangeSkin(int step)
+{
+	int count = (int)_carSkins.size();
+	carcurrentPosition = (carcurrentPosition + step + count) % count;
+
+	UpdateCarSkin();
+}
+
+void JellyMenuBetter::LaunchLevel(GameManager* manager)
+{
+	int idx = CurrentIndex();
+	LOG("JellyMenuBetter::LaunchLevel idx=%d name=%s\n", idx, _sceneFiles[idx].c_str());
+
+	_inputHelper->Update();
+
+	SkinInfo& skin = _carSkins[carcurrentPosition];
+
+	_jellyGame = new JellyGame(_core);
+	_jellyGame->Init();
+	_jellyGame->LoadLevel(_levelManager, _sceneFiles[idx], _levelManager->GetLevelFile(_sceneFiles[idx]), "Assets/Jelly/car_and_truck.car");
+	_jellyGame->SetChassisTextures(_levelManager->GetCarImage(skin.chassisSmall), _levelManager->GetCarImage(skin.chassisBig));
+	_jellyGame->SetTireTextures(_levelManager->GetCarImage(skin.tireSmall), _levelManager->GetCarImage(skin.tireBig));
+	_jellyGame->SetNextLevelAvailable(idx + 1 < (int)_sceneFiles.size());
+
+	manager->PushState(_jellyGame);
+}
+
+void JellyMenuBetter::OpenOptions(GameManager* manager)
+{
+	_jellyOptions = new JellyOptions(_core);
+	manager->PushState(_jellyOptions);
+}
+
+void JellyMenuBetter::HandleConfirmExit(GameManager* manager, int touched)
+{
+	if (_inputHelper->MenuActionPressed(MenuAction::MenuLeft))
+		_confirmYes = true;
+
+	if (_inputHelper->MenuActionPressed(MenuAction::MenuRight))
+		_confirmYes = false;
+
+	bool accept = _inputHelper->MenuActionPressed(MenuAction::MenuAccept);
+
+	if (touched == TouchExitYes || (accept && _confirmYes))
+	{
+		LOG("JellyMenuBetter::HandleConfirmExit exit\n");
+		manager->Quit();
+	}
+	else if (touched == TouchExitNo || accept
+		|| _inputHelper->MenuActionPressed(MenuAction::MenuBack)
+		|| _inputHelper->MenuActionPressed(MenuAction::MenuExit))
+	{
+		_confirmExit = false;
+	}
+}
+
 void JellyMenuBetter::HandleEvents(GameManager* manager)
 {
-	if (_inputHelper->MenuActionPressed(MenuAction::MenuExit))
+	glm::vec2 point;
+	int touched = TouchTargets::None;
+	if (_inputHelper->TouchPressed(point))
 	{
-		LOG("JellyMenuBetter::HandleEvents exit\n");
-		manager->Quit();
-		return;
+		touched = _touch.Find(point);
 	}
 
-	if (_inputHelper->MenuActionPressed(MenuAction::MenuPause))
+	//the left stick drives the car, the d-pad selects the level
+	_car->setTorque(_confirmExit ? 0.0f : _inputHelper->StickDriveAxis());
+	_car->mChassis->torque = _confirmExit ? 0.0f : _inputHelper->StickRotateAxis();
+
+	if (_confirmExit)
 	{
-		LOG("JellyMenuBetter::HandleEvents open options\n");
-		JellyOptions* jelly = new JellyOptions(_core);
-		manager->PushState(jelly);
-		return;
-	}
-
-	int totalLevels = (int)_sceneFiles.size();
-
-	// --- grid navigation ---
-	// Right: move col forward, wrap to next page
-	if (_inputHelper->MenuActionPressed(MenuAction::MenuRight))
-	{
-		_gridCol++;
-		if (_gridCol >= GRID_COLS)
-		{
-			_gridCol = 0;
-			_currentPage++;
-			if (_currentPage >= _totalPages)
-				_currentPage = 0;
-			LOG("JellyMenuBetter::HandleEvents page forward -> page=%d\n", _currentPage);
-		}
-		// clamp to valid level on this page
-		int idx = CurrentIndex();
-		if (idx >= totalLevels)
-		{
-			// wrap back to last valid
-			_currentPage = 0;
-			_gridRow = 0;
-			_gridCol = 0;
-		}
-		LOG("JellyMenuBetter::HandleEvents right col=%d row=%d page=%d idx=%d\n", _gridCol, _gridRow, _currentPage, CurrentIndex());
-		_levelImage->SetTexture(_levelManager->GetThumb(_sceneFiles[CurrentIndex()]));
-		_audioHelper->PlayHitSound();
-	}
-
-	// Left: move col back, wrap to prev page
-	if (_inputHelper->MenuActionPressed(MenuAction::MenuLeft))
-	{
-		_gridCol--;
-		if (_gridCol < 0)
-		{
-			_gridCol = GRID_COLS - 1;
-			_currentPage--;
-			if (_currentPage < 0)
-				_currentPage = _totalPages - 1;
-			LOG("JellyMenuBetter::HandleEvents page back -> page=%d\n", _currentPage);
-		}
-		// clamp if on last page and cell is empty
-		int idx = CurrentIndex();
-		if (idx >= totalLevels)
-		{
-			// snap to last valid level
-			int lastIdx = totalLevels - 1;
-			_currentPage = lastIdx / PAGE_SIZE;
-			_gridRow      = (lastIdx % PAGE_SIZE) / GRID_COLS;
-			_gridCol      = lastIdx % GRID_COLS;
-		}
-		LOG("JellyMenuBetter::HandleEvents left col=%d row=%d page=%d idx=%d\n", _gridCol, _gridRow, _currentPage, CurrentIndex());
-		_levelImage->SetTexture(_levelManager->GetThumb(_sceneFiles[CurrentIndex()]));
-		_audioHelper->PlayHitSound();
-	}
-
-	// Down: move row forward
-	if (_inputHelper->MenuActionPressed(MenuAction::MenuDown))
-	{
-		_gridRow++;
-		if (_gridRow >= GRID_ROWS)
-			_gridRow = 0;
-		// clamp
-		int idx = CurrentIndex();
-		if (idx >= totalLevels)
-		{
-			_gridRow = 0;
-			_gridCol = 0;
-		}
-		LOG("JellyMenuBetter::HandleEvents down col=%d row=%d page=%d idx=%d\n", _gridCol, _gridRow, _currentPage, CurrentIndex());
-		_levelImage->SetTexture(_levelManager->GetThumb(_sceneFiles[CurrentIndex()]));
-		_audioHelper->PlayHitSound();
-	}
-
-	// Up: move row back
-	if (_inputHelper->MenuActionPressed(MenuAction::MenuUp))
-	{
-		_gridRow--;
-		if (_gridRow < 0)
-			_gridRow = GRID_ROWS - 1;
-		// clamp
-		int idx = CurrentIndex();
-		if (idx >= totalLevels)
-		{
-			int lastIdx = totalLevels - 1;
-			_gridRow = (lastIdx % PAGE_SIZE) / GRID_COLS;
-			_gridCol = lastIdx % GRID_COLS;
-		}
-		LOG("JellyMenuBetter::HandleEvents up col=%d row=%d page=%d idx=%d\n", _gridCol, _gridRow, _currentPage, CurrentIndex());
-		_levelImage->SetTexture(_levelManager->GetThumb(_sceneFiles[CurrentIndex()]));
-		_audioHelper->PlayHitSound();
-	}
-
-	// Accept: launch level
-	if (_inputHelper->MenuActionPressed(MenuAction::MenuAccept))
-	{
-		int idx = CurrentIndex();
-		LOG("JellyMenuBetter::HandleEvents accept level idx=%d name=%s\n", idx, _sceneFiles[idx].c_str());
-
+		HandleConfirmExit(manager, touched);
 		_inputHelper->Update();
+		return;
+	}
 
-		_jellyGame = new JellyGame(_core);
-		_jellyGame->Init();
-		_jellyGame->LoadLevel(_levelManager, _sceneFiles[idx], _levelManager->GetLevelFile(_sceneFiles[idx]), "Assets/Jelly/car_and_truck.car");
-		_jellyGame->SetChassisTextures(_levelManager->GetCarImage(_carSkins[carcurrentPosition].chassisSmall), _levelManager->GetCarImage(_carSkins[carcurrentPosition].chassisBig));
-		_jellyGame->SetTireTextures(_levelManager->GetCarImage(_carSkins[carcurrentPosition].tireSmall), _levelManager->GetCarImage(_carSkins[carcurrentPosition].tireBig));
+	if (touched == TouchExit || _inputHelper->MenuActionPressed(MenuAction::MenuExit))
+	{
+		_confirmExit = true;
+		_confirmYes = true;
+		_inputHelper->Update();
+		return;
+	}
 
-		manager->PushState(_jellyGame);
+	if (touched == TouchOptions || _inputHelper->MenuActionPressed(MenuAction::MenuPause))
+	{
+		OpenOptions(manager);
+		return;
+	}
+
+	//level
+	if (_inputHelper->MenuActionPressed(MenuAction::GridRight))
+		MoveHorizontal(1);
+
+	if (_inputHelper->MenuActionPressed(MenuAction::GridLeft))
+		MoveHorizontal(-1);
+
+	if (_inputHelper->MenuActionPressed(MenuAction::GridDown))
+		MoveVertical(1);
+
+	if (_inputHelper->MenuActionPressed(MenuAction::GridUp))
+		MoveVertical(-1);
+
+	if (touched == TouchPageNext || _inputHelper->MenuActionPressed(MenuAction::PageNext))
+		ChangePage(1);
+
+	if (touched == TouchPagePrevious || _inputHelper->MenuActionPressed(MenuAction::PagePrevious))
+		ChangePage(-1);
+
+	//car skin
+	if (touched == TouchSkinNext || _inputHelper->MenuActionPressed(MenuAction::SkinNext))
+		ChangeSkin(1);
+
+	if (touched == TouchSkinPrevious || _inputHelper->MenuActionPressed(MenuAction::SkinPrevious))
+		ChangeSkin(-1);
+
+	//touch selects a level, and starts it when it is selected already
+	bool play = touched == TouchPlay || _inputHelper->MenuActionPressed(MenuAction::MenuAccept);
+
+	if (touched >= TouchLevel)
+	{
+		play = touched - TouchLevel == CurrentIndex();
+
+		if (!play)
+		{
+			SelectLevel(touched - TouchLevel);
+			_audioHelper->PlayHitSound();
+		}
+	}
+
+	if (play)
+	{
+		LaunchLevel(manager);
 		_audioHelper->PlayMusic();
 		return;
 	}
 
-	// Car skin cycling (Tire action = prev, Back = next - kept from original)
-	if (_inputHelper->ActionPressed(CarAction::Tire))
-	{
-		carcurrentPosition--;
-		if (carcurrentPosition < 0)
-			carcurrentPosition = (int)_carSkins.size() - 1;
-		LOG("JellyMenuBetter::HandleEvents skin prev=%d\n", carcurrentPosition);
-		_car->SetChassisTextures(_levelManager->GetCarImage(_carSkins[carcurrentPosition].chassisSmall), _levelManager->GetCarImage(_carSkins[carcurrentPosition].chassisBig));
-		_car->SetTireTextures(_levelManager->GetCarImage(_carSkins[carcurrentPosition].tireSmall), _levelManager->GetCarImage(_carSkins[carcurrentPosition].tireBig));
-	}
-
-	if (_inputHelper->MenuActionPressed(MenuAction::MenuBack))
-	{
-		carcurrentPosition++;
-		if (carcurrentPosition >= (int)_carSkins.size())
-			carcurrentPosition = 0;
-		LOG("JellyMenuBetter::HandleEvents skin next=%d\n", carcurrentPosition);
-		_car->SetChassisTextures(_levelManager->GetCarImage(_carSkins[carcurrentPosition].chassisSmall), _levelManager->GetCarImage(_carSkins[carcurrentPosition].chassisBig));
-		_car->SetTireTextures(_levelManager->GetCarImage(_carSkins[carcurrentPosition].tireSmall), _levelManager->GetCarImage(_carSkins[carcurrentPosition].tireBig));
-	}
-
-	// Car driving in menu
-	if (_inputHelper->ActionPressed(CarAction::Map))
+	if (_inputHelper->ActionPressed(CarAction::Transform))
 		_car->Transform();
-
-	if (_inputHelper->ActionHold(CarAction::Left))
-		_car->setTorque(-1);
-
-	if (_inputHelper->ActionHold(CarAction::Right))
-		_car->setTorque(1);
-
-	_car->mChassis->torque = 0.0f;
-
-	if (_inputHelper->ActionHold(CarAction::RotateLeft))
-		_car->mChassis->torque = -1.0f;
-
-	if (_inputHelper->ActionHold(CarAction::RotateRight))
-		_car->mChassis->torque = 1.0f;
 
 	_inputHelper->Update();
 }
 
 void JellyMenuBetter::Update(GameManager* manager)
 {
+	//retry or next level: start it here, so that the level select is not drawn in between
+	if (_launchLevel)
+	{
+		_launchLevel = false;
+		LaunchLevel(manager);
+		return;
+	}
+
 	_dt = _timer->GetDelta();
 	_focusPhase += _dt * 4.0f;
 	_focusPulse = 0.5f + 0.5f * sinf(_focusPhase);
-
-	if (!_inputHelper->ActionHold(CarAction::Left) && !_inputHelper->ActionHold(CarAction::Right))
-		_car->setTorque(0);
 
 	for (int i = 0; i < 6; i++)
 	{
@@ -356,193 +434,4 @@ void JellyMenuBetter::Update(GameManager* manager)
 		_car->getTire(0)->setPositionAngle(pos, 0.0f, scale);
 		_car->getTire(1)->setPositionAngle(pos, 0.0f, scale);
 	}
-}
-
-void JellyMenuBetter::Draw(GameManager* manager)
-{
-	RectangleDrawer* ui = RectangleDrawer::Instance();
-
-	_renderManager->StartFrame();
-	_renderManager->ClearScreen();
-
-	int screenW = _renderManager->GetWidth();
-	int screenH = _renderManager->GetHeight();
-
-	ui->DrawPaperBackground(_backSprite, screenW, screenH, _projection);
-
-	// --- physics car preview (bottom strip) ---
-	for (size_t i = 0; i < _gameBodies.size(); i++)
-		_gameBodies[i]->Draw(_jellyProjection);
-	_car->Draw(_jellyProjection);
-
-	// --- layout constants ---
-	const int CELL_W = 88;
-	const int CELL_H = 72;
-	const int GRID_WIDTH = GRID_COLS * CELL_W;
-	const int GRID_HEIGHT = GRID_ROWS * CELL_H;
-
-	float thumbScale = 0.95f;
-	int thumbW = (int)(_levelImage->GetTexture()->GetWidth() * thumbScale);
-	int thumbH = (int)(_levelImage->GetTexture()->GetHeight() * thumbScale);
-
-	int spacing = 36;
-	int totalWidth = GRID_WIDTH + spacing + thumbW + 48;
-	int contentStartX = (screenW - totalWidth) / 2;
-	int gridStartX = contentStartX + 24;
-
-	// --- title bar ---
-	int titlePanelW = 520;
-	int titlePanelH = 72;
-	int titlePanelX = (screenW - titlePanelW) / 2;
-	int titlePanelY = 28;
-	ui->DrawPanel(titlePanelX, titlePanelY, titlePanelW, titlePanelH, UiTheme::BarRadius(), _projection);
-
-	_titleFont->AddText("JELLY CAR",
-		UiLayout::CenterX(titlePanelX, titlePanelW),
-		UiLayout::BaselineInPanel(titlePanelY, titlePanelH, UiLayout::TitleFontSize),
-		UiTheme::TextHighlight(), FontCenter);
-
-	// --- selected level name ---
-	int selIdx = CurrentIndex();
-	int levelPanelW = 480;
-	int levelPanelH = 40;
-	int levelPanelX = (screenW - levelPanelW) / 2;
-	int levelPanelY = titlePanelY + titlePanelH + 8;
-	ui->DrawPanel(levelPanelX, levelPanelY, levelPanelW, levelPanelH, UiTheme::BarRadius(), _projection);
-
-	_menuFont->AddText(_sceneFiles[selIdx],
-		UiLayout::CenterX(levelPanelX, levelPanelW),
-		UiLayout::BaselineCenter(levelPanelY, levelPanelH, UiLayout::MenuFontSize),
-		UiTheme::TextAccent(), FontCenter);
-
-	// --- main grid panel ---
-	const int pageFooterH = 34;
-	int panelW = totalWidth;
-	int panelH = GRID_HEIGHT + pageFooterH;
-	int panelX = contentStartX;
-	int panelY = levelPanelY + levelPanelH + 10;
-	int gridStartY = panelY + 14;
-	ui->DrawPanel(panelX, panelY, panelW, panelH, UiTheme::PanelRadius(), _projection);
-
-	int totalLevels = (int)_sceneFiles.size();
-	int pageBase = _currentPage * PAGE_SIZE;
-
-	// --- grid cells ---
-	for (int row = 0; row < GRID_ROWS; row++)
-	{
-		for (int col = 0; col < GRID_COLS; col++)
-		{
-			int idx = pageBase + row * GRID_COLS + col;
-			if (idx >= totalLevels)
-				continue;
-
-			bool selected = (col == _gridCol && row == _gridRow);
-			int boxW = CELL_W - 8;
-			int boxH = CELL_H - 8;
-			int boxX = gridStartX + col * CELL_W;
-			int boxY = gridStartY + row * CELL_H;
-
-			ui->DrawCell(boxX, boxY, boxW, boxH, selected, _focusPulse, _projection);
-
-			int cx = UiLayout::CenterX(boxX, boxW);
-
-			char numBuf[8];
-			sprintf(numBuf, "%d", idx + 1);
-			glm::vec3 nameCol = selected ? UiTheme::TextHighlight() : UiTheme::TextPrimary();
-
-			char timeBuf[12];
-			float t = _levelManager->GetTime(_sceneFiles[idx]);
-			if (t < 999.0f)
-				sprintf(timeBuf, "%.1fs", t);
-			else
-				sprintf(timeBuf, "--");
-
-			glm::vec3 timeCol = selected ? UiTheme::TextSuccess() : UiTheme::TextMuted();
-			int timeY = UiLayout::BaselineRow(boxY, boxH, 1, 2, UiLayout::SmallFontSize);
-			_smallFont->AddText(timeBuf, cx, timeY, timeCol, FontCenter);
-
-			int numY = UiLayout::BaselineBetweenTopAndLine(boxY, timeY, UiLayout::MenuFontSize);
-			_menuFont->AddText(numBuf, cx, numY, nameCol, FontCenter);
-		}
-	}
-
-	// page indicator — centered in footer band below grid
-	{
-		char pageBuf[32];
-		sprintf(pageBuf, "Page %d / %d", _currentPage + 1, _totalPages);
-		int gridBottom = gridStartY + GRID_HEIGHT;
-		int footerY = gridBottom;
-		int footerH = (panelY + panelH) - gridBottom;
-		_smallFont->AddText(pageBuf,
-			UiLayout::CenterX(panelX, panelW),
-			UiLayout::BaselineCenter(footerY, footerH, UiLayout::SmallFontSize),
-			UiTheme::TextMuted(), FontCenter);
-	}
-
-	// --- right panel: thumbnail + stats ---
-	{
-		int panelRight = panelX + panelW;
-		int imageStartY = gridStartY;
-		int detailPanelX = gridStartX + GRID_WIDTH + spacing - 16;
-		int detailPanelW = panelRight - detailPanelX;
-		int detailPanelH = thumbH + 100;
-		int detailPanelY = imageStartY - 12;
-		ui->DrawPanel(detailPanelX, detailPanelY, detailPanelW, detailPanelH, UiTheme::PanelRadius(), _projection);
-
-		_levelImage->SetScale(glm::vec2(thumbScale, thumbScale));
-		int thumbCX = UiLayout::CenterX(detailPanelX, detailPanelW);
-		int thumbCY = imageStartY + thumbH / 2;
-		_levelImage->SetPosition(glm::vec2(thumbCX, thumbCY));
-		_levelImage->Draw(_projection);
-		_levelImage->SetScale(glm::vec2(1.0f, 1.0f));
-
-		int statsTop = imageStartY + thumbH + 12;
-		int statsH = (detailPanelY + detailPanelH) - statsTop - 8;
-		int leftCx = detailPanelX + detailPanelW / 4;
-		int rightCx = detailPanelX + 3 * detailPanelW / 4;
-
-		char bufTime[16], bufJump[16];
-		float recTime = _levelManager->GetTime(_sceneFiles[selIdx]);
-		float recJump = _levelManager->GetJump(_sceneFiles[selIdx]);
-		if (recTime >= 999.0f)
-			sprintf(bufTime, "--.--s");
-		else
-			sprintf(bufTime, "%.2fs", recTime);
-		if (recJump <= 0.0f)
-			sprintf(bufJump, "--.--m");
-		else
-			sprintf(bufJump, "%.2fm", recJump);
-
-		int statRowY = UiLayout::BaselineRow(statsTop, statsH, 0, 2, UiLayout::MenuFontSize);
-		_menuFont->AddText(bufTime, leftCx, statRowY, UiTheme::TextSuccess(), FontCenter);
-		_menuFont->AddText(bufJump, rightCx, statRowY, UiTheme::TextHighlight(), FontCenter);
-
-		_smallFont->AddText(_carSkins[carcurrentPosition].name,
-			UiLayout::CenterX(detailPanelX, detailPanelW),
-			UiLayout::BaselineRow(statsTop, statsH, 1, 2, UiLayout::SmallFontSize),
-			UiTheme::TextAccent(), FontCenter);
-	}
-
-	// --- bottom bar ---
-	ui->DrawBottomBar(screenW, screenH, _projection);
-
-	{
-		int barX, barY, barW, barH;
-		ui->GetBottomBarRect(screenW, screenH, barX, barY, barW, barH);
-		int halfW = barW / 2;
-
-		UiPrompt::DrawPromptInSlot(ui, _smallFont, _menuFont, _projection,
-			barX, halfW, barY, barH,
-			_inputHelper->MenuActionLabel(MenuAction::MenuPause).c_str(), "Options");
-
-		UiPrompt::DrawPromptInSlot(ui, _smallFont, _menuFont, _projection,
-			barX + halfW, halfW, barY, barH,
-			_inputHelper->MenuActionLabel(MenuAction::MenuExit).c_str(), "Exit");
-	}
-
-	_menuFont->Draw(_projection);
-	_titleFont->Draw(_projection);
-	_smallFont->Draw(_projection);
-
-	_renderManager->EndFrame();
 }

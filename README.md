@@ -1,20 +1,32 @@
 ## JellyCar is great 2d game with soft body physics created by Walaber https://twitter.com/walaber.
 
-This is an updated homebrew version of the original project for Switch, with all other consoles deprecated and unsupported.
+This is an updated Switch and Switch 2 homebrew version of the [original project](https://github.com/DrakonPL/JellyCar), which also has the Vita and Windows builds.
 
-Current implementation uses [Andromeda-Lib](https://github.com/DrakonPL/Andromeda-Lib), patched during setup below.
+It uses a [Switch fork of Andromeda-Lib](https://github.com/Common-Leap/Andromeda-Lib).
+
+## Controls
+
+Car controls can be changed in the options.
+
+| Action | Default | Also |
+| --- | --- | --- |
+| Drive | Left stick | D-pad |
+| Tilt | L / R | ZL / ZR, right stick |
+| Transform | B | |
+| Balloon | A | Touch |
+| Sticky tire | Y | Touch |
+| Map | X | |
+| Pause | + / - | |
+
+On the level select, the D-pad picks a level, L / R change the page, ZL / ZR change the car skin and the left stick drives the car. The other menus use the left stick or the D-pad. Everything in the menus can be touched.
 
 ## Build instructions
-
--Note: all the other platform builds from this fork are unsupported and are there because I'm too lazy to remove them. If you want the Vita or Windows builds, check the original project
-
-### Nintendo Switch
 
 1. Clone both repositories as siblings:
 
 ```sh
-git clone https://github.com/DrakonPL/Andromeda-Lib
-git clone https://github.com/Common-Leap/JellyCar.git JellyCar
+git clone https://github.com/Common-Leap/Andromeda-Lib.git
+git clone https://github.com/Common-Leap/JellyCar-NX.git JellyCar
 ```
 
 Expected layout:
@@ -43,46 +55,43 @@ export DEVKITA64=$DEVKITPRO/devkitA64
 export PATH=$DEVKITA64/bin:$DEVKITPRO/tools/bin:$DEVKITPRO/portlibs/switch/bin:$PATH
 ```
 
-4. Apply the required `Andromeda-Lib` compatibility patch for latest `libnx` (Switch exit/audio/font/shader fixes):
-
-```sh
-git -C Andromeda-Lib apply ../JellyCar/Build/Switch/andromeda-lib-libnx.patch
-```
-
-If this reports the patch is already applied, continue.
-
-5. Build:
+4. Build:
 
 ```sh
 cd JellyCar/Build/Switch
-make clean
-make -j$(nproc)
+make -j2
 ```
 
-By default, file logging is disabled (`FILE_LOG=0`), so no `Info*.txt` / `Error*.txt` debug files are written.
-To enable file logging, build with:
+| Command | Menus | Output |
+|---|---|---|
+| `make` or `make MENUS=new` | Redesigned menus (v1.3.0 and later) | `JellyCar.nro` |
+| `make MENUS=old` | Menus from before the v1.3.0 redesign | `JellyCar-OldMenus.nro` |
+| `make both` | One build of each | Both |
 
-```sh
-make -j$(nproc) FILE_LOG=1
-```
+### Nintendo Switch 2
 
-If `Andromeda-Lib` is not in the default sibling location:
+Switch 2 builds run under [kaiHEN](https://github.com/ouncebrew/kaihen). Install its devkit, [ounce-devkit](https://github.com/ouncebrew/ounce-devkit), into devkitPro with the `install.sh` from that repository, then add `PLATFORM=switch2` to any of the commands above:
 
-```sh
-make -j$(nproc) ANDROMEDA_LIB=/absolute/or/relative/path/to/Andromeda-Lib
-```
+| Command | Menus | Output |
+|---|---|---|
+| `make PLATFORM=switch2` | Redesigned menus | `JellyCar-NS2.nro` |
+| `make PLATFORM=switch2 MENUS=old` | Menus from before the v1.3.0 redesign | `JellyCar-OldMenus-NS2.nro` |
+| `make PLATFORM=switch2 both` | One build of each | Both |
+| `make everything` | Both menus for Switch and Switch 2 | All four |
 
-The build now auto-stages `JellyCar/Assets` into `Build/Switch/romfs/Assets` and embeds it in `JellyCar.nro`, so no separate asset copy is required for normal use.
+### Other options
 
-6. Deploy and run:
+- `FILE_LOG=1` writes `Info*.txt` / `Error*.txt` debug logs. Run `make clean` first when changing it.
+- `ANDROMEDA_LIB=/path/to/Andromeda-Lib` if it is not in the default sibling location. Use an absolute path, or one relative to `Build/Switch`.
 
-- Copy `JellyCar/Build/Switch/JellyCar.nro` to `sdmc:/switch/JellyCar/JellyCar.nro`.
-- Launch from Homebrew Menu with title override (hold `R` while opening a game) to avoid applet-memory crashes.
+The build embeds `Assets` in the `.nro`, so no separate asset copy is required for normal use.
+
+## Deploy and run
+
+- Copy the `.nro` you built to `sdmc:/switch/JellyCar/`.
+- Launch from Homebrew Menu with title override (hold `R` while opening a game) to avoid applet-memory crashes. On Switch 2, holding `R` while opening a native game is how kaiHEN opens hbmenu.
 - Optional override: if you want filesystem assets instead of embedded romfs, place `Assets` at `sdmc:/switch/JellyCar/Assets`.
-
-For a release package, `JellyCar.nro` is the required runtime file.
-
 
 ### Mod Support
 
-If you would like to customize the games asset/music or want to make custom levels, head on over to https://github.com/Common-Leap/JellyModTool/, where you can find a simple editor for making mods. Mods go in the same folder as the .nro and are in a folder named JellyMods. 
+If you would like to customize the games asset/music or want to make custom levels, head on over to https://github.com/Common-Leap/JellyModTool/, where you can find a simple editor for making mods. Mods go in the same folder as the .nro and are in a folder named JellyMods. The mod format is described in [docs/MODDING.md](docs/MODDING.md).

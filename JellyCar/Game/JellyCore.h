@@ -23,6 +23,12 @@ public:
 	//
 	TexturedFont* _smallFont;
 
+	//between small and menu
+	TexturedFont* _bodyFont;
+
+	//letters on buttons
+	TexturedFont* _badgeFont;
+
 	//title
 	TexturedFont* _titleFont;
 
@@ -35,6 +41,9 @@ public:
 	~JellyCore();
 
 	void Init();
+
+	//draws the text added to every font since the last call
+	void DrawText(glm::mat4& projection);
 
 };
 

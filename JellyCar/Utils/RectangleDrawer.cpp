@@ -178,23 +178,3 @@ void RectangleDrawer::DrawDimOverlay(int screenW, int screenH, float alpha, glm:
 	dim.a = alpha;
 	DrawRoundedRect(0, 0, screenW, screenH, 0.0f, dim, glm::vec4(0, 0, 0, 0), 0.0f, projection);
 }
-
-void RectangleDrawer::DrawHighlightRow(int x, int y, int width, int height, float cornerRadius, glm::mat4& projection)
-{
-	DrawRoundedRect(x, y, width, height, cornerRadius, UiTheme::HighlightFill(), UiTheme::CellBorderSelected(), 1.5f, projection);
-}
-
-void RectangleDrawer::GetBottomBarRect(int screenW, int screenH, int& x, int& y, int& w, int& h)
-{
-	w = 500;
-	h = 52;
-	x = (screenW - w) / 2;
-	y = screenH - h - 14;
-}
-
-void RectangleDrawer::DrawBottomBar(int screenW, int screenH, glm::mat4& projection)
-{
-	int barX, barY, barW, barH;
-	GetBottomBarRect(screenW, screenH, barX, barY, barW, barH);
-	DrawPanel(barX, barY, barW, barH, UiTheme::BarRadius(), projection);
-}

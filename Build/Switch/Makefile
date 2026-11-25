@@ -1,5 +1,6 @@
 #---------------------------------------------------------------------------------
 .SUFFIXES:
+.DEFAULT_GOAL := all
 #---------------------------------------------------------------------------------
 
 ifeq ($(strip $(DEVKITPRO)),)
@@ -7,7 +8,25 @@ $(error "Please set DEVKITPRO in your environment. export DEVKITPRO=<path to>/de
 endif
 
 TOPDIR ?= $(CURDIR)
+
+# PLATFORM selects the console:
+#   switch  - Switch, with libnx (default)
+#   switch2 - Switch 2 under kaiHEN, with ounce-devkit. The outputs end in -NS2.
+PLATFORM	?=	switch
+
+ifeq ($(PLATFORM),switch)
 include $(DEVKITPRO)/libnx/switch_rules
+PLATFORM_ARCH	:=	-march=armv8-a+crc+crypto -mtune=cortex-a57
+else ifeq ($(PLATFORM),switch2)
+ifeq ($(wildcard $(DEVKITPRO)/libounce/switch2_rules),)
+$(error PLATFORM=switch2 needs ounce-devkit, https://github.com/ouncebrew/ounce-devkit, installed in $(DEVKITPRO))
+endif
+include $(DEVKITPRO)/libounce/switch2_rules
+PLATFORM_ARCH	:=	$(SWITCH2_CPU)
+PLATFORM_SUFFIX	:=	-NS2
+else
+$(error PLATFORM must be "switch" or "switch2", not "$(PLATFORM)")
+endif
 
 #---------------------------------------------------------------------------------
 # TARGET is the name of the output
@@ -37,18 +56,33 @@ include $(DEVKITPRO)/libnx/switch_rules
 #   of a homebrew executable (.nro). This is intended to be used for sysmodules.
 #   NACP building is skipped as well.
 #---------------------------------------------------------------------------------
-APP_TITLE	:=	JellyCar
-APP_AUTHOR	:=	drakon
-APP_VERSION	:=	1.1.0
+# MENUS selects which set of menus to build:
+#   new - the redesigned menus (default), JellyCar.nro
+#   old - the menus from before the v1.3.0 redesign, JellyCar-OldMenus.nro
+MENUS		?=	new
 
-TARGET		:=	JellyCar
-BUILD		:=	build
-SOURCES		:=	
+ifeq ($(MENUS),new)
+MENUS_DIR	:=	New
+APP_TITLE	:=	JellyCar
+TARGET		:=	JellyCar$(PLATFORM_SUFFIX)
+else ifeq ($(MENUS),old)
+MENUS_DIR	:=	Old
+APP_TITLE	:=	JellyCar (Old Menus)
+TARGET		:=	JellyCar-OldMenus$(PLATFORM_SUFFIX)
+else
+$(error MENUS must be "new" or "old", not "$(MENUS)")
+endif
+
+APP_AUTHOR	:=	drakon
+APP_VERSION	:=	1.4.0
+
+BUILD		:=	build-$(MENUS)$(PLATFORM_SUFFIX)
+SOURCES		:=	../../JellyCar/Menus/$(MENUS_DIR)
 DATA		:=	data
 ASSETS_DIR	:=	../../Assets
 ANDROMEDA_LIB	?=	../../../Andromeda-Lib
-INCLUDES	:=	$(ANDROMEDA_LIB) $(ANDROMEDA_LIB)/Libs $(ANDROMEDA_LIB)/Libs/freetype_gl $(ANDROMEDA_LIB)/Libs/stb $(ANDROMEDA_LIB)/Libs/tinyxml $(ANDROMEDA_LIB)/Libs/tiny_obj_loader $(ANDROMEDA_LIB)/Libs/bullet/include/bullet \
-				../../../JellyCar ../../../JellyCar/Libs
+INCLUDES	:=	$(ANDROMEDA_LIB) $(ANDROMEDA_LIB)/Libs $(ANDROMEDA_LIB)/Libs/freetype_gl $(ANDROMEDA_LIB)/Libs/stb $(ANDROMEDA_LIB)/Libs/tinyxml $(ANDROMEDA_LIB)/Libs/tiny_obj_loader \
+				../..
 ROMFS	:=	romfs
 FILE_LOG	?=	0
 DEFINES		+=	-DANDROMEDA_FILE_LOG=$(FILE_LOG)
@@ -56,10 +90,13 @@ DEFINES		+=	-DANDROMEDA_FILE_LOG=$(FILE_LOG)
 #---------------------------------------------------------------------------------
 # options for code generation
 #---------------------------------------------------------------------------------
-ARCH	:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
+ARCH	:=	$(PLATFORM_ARCH) -mtp=soft -fPIE
 
 CFLAGS	:=	-g -Wall -O2 -ffunction-sections \
 			$(ARCH) $(DEFINES)
+
+# keep the folder of the build machine out of the binary
+CFLAGS	+=	-ffile-prefix-map=$(TOPDIR)/=
 
 CFLAGS	+=	$(INCLUDE) -D__SWITCH__ `aarch64-none-elf-pkg-config --cflags SDL2_mixer freetype2`
 
@@ -67,7 +104,7 @@ CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++11 -ffat-lto-objects -
 CFLAGS	+=	$(INCLUDE) -D__SWITCH__
 
 ASFLAGS	:=	-g $(ARCH)
-LDFLAGS	=	-specs=$(DEVKITPRO)/libnx/switch.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
+LDFLAGS	=	-specs=$(LIBNX)/switch.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
 LIBS	:= -lnx -lglad -lEGL -lglapi -ldrm_nouveau -lpthread -lz -lm -lstdc++ -lfreetype -lpng -lbz2 `aarch64-none-elf-pkg-config --libs  sdl2 SDL2_mixer freetype2` 
 
@@ -124,45 +161,43 @@ SRC_RENDERER	:=\
 	$(ANDROMEDA_LIB)/Libs/tinyxml/tinyxmlparser.cpp \
 	$(ANDROMEDA_LIB)/Libs/tinyxml/tinyxml.cpp \
 	$(ANDROMEDA_LIB)/Libs/tiny_obj_loader/tiny_obj_loader.cpp\
-	../../../JellyCar/JellyPhysics/AABB.cpp \
-	../../../JellyCar/JellyPhysics/Body.cpp \
-	../../../JellyCar/JellyPhysics/ClosedShape.cpp \
-	../../../JellyCar/JellyPhysics/InternalSpring.cpp \
-	../../../JellyCar/JellyPhysics/PointMass.cpp \
-	../../../JellyCar/JellyPhysics/PressureBody.cpp \
-	../../../JellyCar/JellyPhysics/SpringBody.cpp \
-	../../../JellyCar/JellyPhysics/Vector2.cpp \
-	../../../JellyCar/JellyPhysics/VectorTools.cpp \
-	../../../JellyCar/JellyPhysics/World.cpp \
-	../../../JellyCar/JellyCar/Car/Car.cpp \
-	../../../JellyCar/JellyCar/Car/Chassis.cpp \
-	../../../JellyCar/JellyCar/Car/GameBallonBody.cpp \
-	../../../JellyCar/JellyCar/Car/SuspensionShock.cpp \
-	../../../JellyCar/JellyCar/Car/Tire.cpp \
-	../../../JellyCar/JellyCar/Levels/KinematicControl.cpp \
-	../../../JellyCar/JellyCar/Levels/KinematicMotor.cpp \
-	../../../JellyCar/JellyCar/Levels/KinematicPlatform.cpp \
-	../../../JellyCar/JellyCar/Levels/LevelManager.cpp \
-	../../../JellyCar/JellyCar/Levels/LevelSoftBody.cpp \
-	../../../JellyCar/JellyCar/Levels/GamePressureBody.cpp \
-	../../../JellyCar/JellyCar/Levels/GameSpringBody.cpp \
-	../../../JellyCar/JellyCar/Utils/JellyHelper.cpp \
-	../../../JellyCar/JellyCar/Utils/RectangleDrawer.cpp \
-	../../../JellyCar/JellyCar/Utils/UiPrompt.cpp \
-	../../../JellyCar/JellyCar/Utils/InputHelper.cpp \
-	../../../JellyCar/JellyCar/Utils/AudioHelper.cpp \
-	../../../JellyCar/JellyCar/Mods/ModLoader.cpp \
-	../../../JellyCar/JellyCar/Game/JellyCore.cpp \
-	../../../JellyCar/JellyCar/Game/JellyGame.cpp \
-	../../../JellyCar/JellyCar/Game/JellyOptions.cpp \
-	../../../JellyCar/JellyCar/Game/JellyMenuBetter.cpp \
-	../../../JellyCar/JellyCar/Game/JellyIntro.cpp \
-	../../../JellyCar/JellyCar/Game/JellySplash.cpp \
-	../../../JellyCar/JellyCar/JellyGameManager.cpp \
-	../../../JellyCar/JellyCar/JellyCar.cpp
-	
-	
-	
+	../../JellyPhysics/AABB.cpp \
+	../../JellyPhysics/Body.cpp \
+	../../JellyPhysics/ClosedShape.cpp \
+	../../JellyPhysics/InternalSpring.cpp \
+	../../JellyPhysics/PointMass.cpp \
+	../../JellyPhysics/PressureBody.cpp \
+	../../JellyPhysics/SpringBody.cpp \
+	../../JellyPhysics/Vector2.cpp \
+	../../JellyPhysics/VectorTools.cpp \
+	../../JellyPhysics/World.cpp \
+	../../JellyCar/Car/Car.cpp \
+	../../JellyCar/Car/Chassis.cpp \
+	../../JellyCar/Car/GameBallonBody.cpp \
+	../../JellyCar/Car/SuspensionShock.cpp \
+	../../JellyCar/Car/Tire.cpp \
+	../../JellyCar/Levels/KinematicControl.cpp \
+	../../JellyCar/Levels/KinematicMotor.cpp \
+	../../JellyCar/Levels/KinematicPlatform.cpp \
+	../../JellyCar/Levels/LevelManager.cpp \
+	../../JellyCar/Levels/LevelSoftBody.cpp \
+	../../JellyCar/Levels/GamePressureBody.cpp \
+	../../JellyCar/Levels/GameSpringBody.cpp \
+	../../JellyCar/Utils/JellyHelper.cpp \
+	../../JellyCar/Utils/RectangleDrawer.cpp \
+	../../JellyCar/Utils/UiPrompt.cpp \
+	../../JellyCar/Utils/InputHelper.cpp \
+	../../JellyCar/Utils/AudioHelper.cpp \
+	../../JellyCar/Mods/ModLoader.cpp \
+	../../JellyCar/Game/JellyCore.cpp \
+	../../JellyCar/Game/JellyGame.cpp \
+	../../JellyCar/Game/JellyOptions.cpp \
+	../../JellyCar/Game/JellyMenuBetter.cpp \
+	../../JellyCar/Game/JellyIntro.cpp \
+	../../JellyCar/Game/JellySplash.cpp \
+	../../JellyCar/JellyGameManager.cpp \
+	../../JellyCar/JellyCar.cpp
+
 SOURCEFILES_CPP	:=\
 	$(SRC_RENDERER) 
 
@@ -277,41 +312,36 @@ ifneq ($(ROMFS),)
 	export NROFLAGS += --romfsdir=$(call resolve_path,$(ROMFS))
 endif
 
-.PHONY: $(BUILD) clean all
+.PHONY: $(BUILD) clean all both everything
 
 #---------------------------------------------------------------------------------
 all: $(BUILD)
 
-$(ROMFS_STAMP):
+both:
+	@$(MAKE) --no-print-directory MENUS=new all
+	@$(MAKE) --no-print-directory MENUS=old all
+
+everything:
+	@$(MAKE) --no-print-directory PLATFORM=switch both
+	@$(MAKE) --no-print-directory PLATFORM=switch2 both
+
+$(ROMFS_STAMP): $(shell find $(ROMFS_SRC) -type f 2>/dev/null)
 	@[ -d $(ROMFS_SRC) ] || (echo "Missing assets directory: $(ROMFS_SRC)" && false)
-	@[ -d $(CURDIR)/$(ROMFS) ] || mkdir -p $(CURDIR)/$(ROMFS)
+	@mkdir -p $(CURDIR)/$(ROMFS)
 	@rm -rf $(ROMFS_DST)
 	@cp -a $(ROMFS_SRC) $(ROMFS_DST)
-	@if [ -d "$(ROMFS_DST)/Shaders/GL" ]; then \
-		for shader in "$(ROMFS_DST)"/Shaders/GL/*.vert "$(ROMFS_DST)"/Shaders/GL/*.frag; do \
-			[ -e "$$shader" ] || continue; \
-			cp -f "$$shader" "$(ROMFS_DST)/Shaders/$$(basename "$$shader")"; \
-		done; \
-	fi
 	@touch $(ROMFS_STAMP)
 
 $(BUILD): $(ROMFS_STAMP)
-	@grep -Fq "Switch cleanup: game manager done" $(call resolve_path,$(ANDROMEDA_LIB))/Andromeda/System/SWITCH/GameLoaderSwitch.cpp || (echo "Andromeda-Lib is missing Switch cleanup patch. Apply Build/Switch/andromeda-lib-libnx.patch."; false)
-	@grep -Fq "Switch return to libnx exit" $(call resolve_path,$(ANDROMEDA_LIB))/Andromeda/System/SWITCH/GameLoaderSwitch.cpp || (echo "Andromeda-Lib is missing Switch libnx-exit patch. Apply Build/Switch/andromeda-lib-libnx.patch."; false)
-	@grep -Fq "TexturedFont::LoadFromMemory: texture_font_new_from_memory failed" $(call resolve_path,$(ANDROMEDA_LIB))/Andromeda/Graphics/Text/TexturedFont.cpp || (echo "Andromeda-Lib is missing TexturedFont patch. Apply Build/Switch/andromeda-lib-libnx.patch."; false)
-	@grep -Fq "FT_Set_Pixel_Sizes(*face, 0, (FT_UInt)logical_size);" $(call resolve_path,$(ANDROMEDA_LIB))/Libs/freetype_gl/texture-font.c || (echo "Andromeda-Lib is missing freetype_gl font patch. Apply Build/Switch/andromeda-lib-libnx.patch."; false)
+	@[ -d $(call resolve_path,$(ANDROMEDA_LIB))/Andromeda ] || (echo "Andromeda-Lib not found at $(ANDROMEDA_LIB). Clone https://github.com/Common-Leap/Andromeda-Lib there or set ANDROMEDA_LIB."; false)
 	@[ -d $@ ] || mkdir -p $@
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
 
 #---------------------------------------------------------------------------------
 clean:
 	@echo clean ...
-ifeq ($(strip $(APP_JSON)),)
-	@rm -fr $(BUILD) $(TARGET).nro $(TARGET).nacp $(TARGET).elf $(ROMFS)
-else
-	@rm -fr $(BUILD) $(TARGET).nsp $(TARGET).nso $(TARGET).npdm $(TARGET).elf $(ROMFS)
-endif
-
+	@rm -fr build-new build-old build-new-NS2 build-old-NS2 $(ROMFS)
+	@rm -f $(foreach t,JellyCar JellyCar-OldMenus JellyCar-NS2 JellyCar-OldMenus-NS2,$(t).nro $(t).nacp $(t).elf)
 
 #---------------------------------------------------------------------------------
 else

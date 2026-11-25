@@ -79,6 +79,7 @@ void JellyIntro::Init()
 	_timer = new Timer();
 
 	_end = false;
+	_skip = false;
 }
 
 void JellyIntro::Enter()
@@ -133,6 +134,11 @@ void JellyIntro::GameResume()
 
 void JellyIntro::HandleEvents(GameManager* manager)
 {
+	if (_inputHelper->SkipPressed())
+	{
+		_skip = true;
+	}
+
 	_inputHelper->Update();
 }
 
@@ -169,7 +175,7 @@ void JellyIntro::Update(GameManager* manager)
 		_car->getTire(1)->setPositionAngle(pos, 0.0f, scale);
 	}
 
-	bool enterMenu = false;
+	bool enterMenu = _skip;
 
 	//end of scene
 	if (_car->getChassisBody()->getAABB().contains(_levelTarget))
